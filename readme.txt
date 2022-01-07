@@ -1,7 +1,6 @@
 ---- pyCLAMs ----
 
 pyCLAMs: an integrated Python toolkit for classifiability analysis
-A more friendly GUI tool using pyCLAMs can be accessed at http://spacs.brahma.pub/research/CLA
 
 ---- Installation ----
 
