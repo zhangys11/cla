@@ -13,8 +13,8 @@ You should also have the R runtime with the ECol library (https://github.com/lpf
 
 Download the sample dataset from the /data folder
 Use the following sample code to use the package:
-<code>
 
+<pre>
   # import the library
   from pyCLAMs.pyCLAMs import *
 
@@ -32,4 +32,4 @@ Use the following sample code to use the package:
   # get an html report and display in Jupyter notebook
   from IPython.display import display, HTML
   display(HTML(get_html(X,y)))
-</code>
+</pre>
