@@ -3,13 +3,13 @@
 pyCLAMs: An integrated Python toolkit for classifiability analysis [J]. SoftwareX, Volume 18, June 2022, 101007, doi: 10.1016/j.softx.2022.101007  
 https://doi.org/10.1016/j.softx.2022.101007
 
-## Installation 
+# Installation 
 
 pip install pyCLAMs
 pip install rpy2
 You should also have the R runtime with the ECol library (https://github.com/lpfgarcia/ECoL) installed.
 
-## How to use 
+# How to use 
 
 Download the sample dataset from the /data folder
 Use the following sample code to use the package:
