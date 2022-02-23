@@ -1,6 +1,7 @@
 ---- pyCLAMs ----
 
-pyCLAMs: An integrated Python toolkit for classifiability analysis [J]. SoftwareX, 2022, doi: 10.1016/j.softx.2022.101007
+pyCLAMs: An integrated Python toolkit for classifiability analysis [J]. SoftwareX, Volume 18, June 2022, 101007, doi: 10.1016/j.softx.2022.101007  
+https://doi.org/10.1016/j.softx.2022.101007
 
 ---- Installation ----
 
