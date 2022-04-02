@@ -283,7 +283,13 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     # clf = LogisticRegressionCV(cv=10, solver = 'saga', penalty = 'elasticnet', max_iter = 5000, l1_ratios = [0,0.2,0.4,0.6,0.8,1]).fit(X, y) # with Elasticnet regularization, but it is too time consuming. We don't require sparse solution, so ridge suffices.
     # LOG += "regularization strength\t" + str(clf.C_) + "\nL1 reg ratio" + str(clf.l1_ratio_) + "\n\n"
 
-    clf = LogisticRegressionCV(cv=10, max_iter = 1000).fit(X, y) # ridge(L2) regularization
+    grp_samples = []
+    for yv in set(y):
+        grp_samples.append((y == yv).sum())   
+        
+    # min(grp_samples) is the minimum sample size among all categories. CV requires to be not greater than this value.
+
+    clf = LogisticRegressionCV(cv = min(10, min(grp_samples)), max_iter = 1000).fit(X, y) # ridge(L2) regularization
     LOG += "regularization strength\t" + str(clf.C_) + "\n\n"
     # l1_ratio: while 1 is equivalent to using penalty='l1'. For 0 < l1_ratio <1, the penalty is a combination of L1 and L2.
 
