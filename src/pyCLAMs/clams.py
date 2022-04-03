@@ -139,8 +139,8 @@ def select_features(X, y, metric, metric_name = '', N = 30, feature_names = None
     idx = np.argsort(metric)[::-1][:N] # idx = np.where(F > 30)[0] # np.where(pval < 0.00001)
     
     if (feature_names):
-        print('Important feature indices: ', idx)
-        print('Important feature names: ', feature_names[idx])
+        print('Top ' + str(N) + ' important feature indices: ', idx)
+        print('Top ' + str(N) + ' important feature names: ', np.array(feature_names)[np.array(idx)])
 
     X_M = X[:,idx]
     unsupervised_dimension_reductions(X_M, y, set(y))
@@ -502,7 +502,7 @@ def CHISQ(X, y, verbose = False, show = False, save_fig = ''):
 
     return ps.tolist(), CHI2s.tolist(), IMG
 
-def ANOVA(X,y, verbose = False, show = False):
+def ANOVA(X,y, verbose = False, show = False, max_plot_num = 5):
     """
     Performa feature-wise ANOVA test. Returns an array of p-values on all the features and its minimum.
 
@@ -516,6 +516,8 @@ def ANOVA(X,y, verbose = False, show = False):
     IMG = ''
     Fs = []
     
+    cnt = 0
+
     for i in range(X.shape[1]):
         Xi = X[:,i]
         Xcis = []
@@ -557,20 +559,31 @@ def ANOVA(X,y, verbose = False, show = False):
         ps.append(p)
         Fs.append(f)
 
-        plt.figure()
-        plt.boxplot(Xcis.T, notch=False, labels=labels) # plot ith feature of different classes   
-        test_result = "ANOVA on X{}: f={},p={}".format(i+1, f, round(p,3))
-        # plt.legend(labels)
-        plt.title(test_result)
-        IMG += plt2html(plt)+ '<br/>'
+        
+        if (cnt < max_plot_num):
+
+            plt.figure()
+            plt.boxplot(Xcis.T, notch=False, labels=labels) # plot ith feature of different classes   
+            test_result = "ANOVA on X{}: f={},p={}".format(i+1, f, round(p,3))
+            # plt.legend(labels)
+            plt.title(test_result)
+            IMG += plt2html(plt)
     
-        if show:
-            plt.show()
+            if show:
+                plt.show()
+            else:
+                plt.close()
+        elif cnt == max_plot_num:
+            IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'     
         else:
-            plt.close()
+            pass # plot no more to avoid memory cost
+
+        cnt = cnt+1
 
         if verbose:
             print(test_result)
+
+    IMG += '<br/>'
 
     return ps, Fs, IMG
 
@@ -614,7 +627,7 @@ def MANOVA(X,y, verbose = False):
         
     return manova_p, manova_F, LOG
 
-def MWW(X,y, verbose = False, show = False):
+def MWW(X,y, verbose = False, show = False, max_plot_num = 5):
     """
     Performa feature-wise MWW test. Returns an array of p-values on all the features and its minimum.
 
@@ -627,6 +640,8 @@ def MWW(X,y, verbose = False, show = False):
     ps = []
     Us = []
     IMG = ''
+
+    cnt = 0
 
     for i in range(X.shape[1]):
         Xi = X[:,i]
@@ -643,20 +658,31 @@ def MWW(X,y, verbose = False, show = False):
         ps.append(p)
         Us.append(U)
 
-        plt.figure()
-        plt.hist(Xcis.T, bins = min(12, int(len(y)/3)), alpha=0.4, edgecolor='black', label = ["$ X_"+str(i+1)+"^{( y_"+str(0)+")} $", "$ X_"+str(i+1)+"^{( y_"+str(1)+")} $"]) # plot ith feature of different classes   
-        test_result = "MWW test on X{}: U={},p={}".format(i+1, U, round(p,3))
-        plt.title('Feature X{} histogram on different classes\n'.format(i+1) + test_result)
-        plt.legend()
-        IMG += plt2html(plt) + '<br/>'
+        if cnt < max_plot_num:
+            plt.figure()
+            plt.hist(Xcis.T, bins = min(12, int(len(y)/3)), alpha=0.4, edgecolor='black', label = ["$ X_"+str(i+1)+"^{( y_"+str(0)+")} $", "$ X_"+str(i+1)+"^{( y_"+str(1)+")} $"]) # plot ith feature of different classes   
+            test_result = "MWW test on X{}: U={},p={}".format(i+1, U, round(p,3))
+            plt.title('Feature X{} histogram on different classes\n'.format(i+1) + test_result)
+            plt.legend()
+            IMG += plt2html(plt) + '<br/>'
         
-        if show:               
-            plt.show() 
+            if show:               
+                plt.show() 
+            else:
+                plt.close()
+
+        elif cnt == max_plot_num:
+            IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'     
+
         else:
-            plt.close()
+            pass # plot no more to avoid memory cost
+
+        cnt = cnt + 1
 
         if verbose:
             print(test_result)
+
+    IMG += '<br/>'
 
     return ps, Us, IMG
 
@@ -783,7 +809,7 @@ def correlate(X,y, verbose = False, show = False):
     
     return dct, LOG
 
-def KS(X,y, show = False):
+def KS(X,y, show = False, max_plot_num = 5):
     """
     Performa feature-wise KS test.
 
@@ -796,6 +822,7 @@ def KS(X,y, show = False):
     ps = []
     Ds = []
     IMG = ''
+    cnt = 0
 
     for i in range(X.shape[1]):
         Xi = X[:,i]
@@ -812,18 +839,28 @@ def KS(X,y, show = False):
         ps.append(p)
         Ds.append(D)
 
-        plt.figure()
-        plt.hist(Xcis.T, cumulative=True, histtype=u'step', bins = min(12, int(len(y)/3)), label = ["$ CDF( X_"+str(i+1)+"^{(y_"+str(0)+")} ) $", "$ CDF( X_"+str(i+1)+"^{(y_"+str(1)+")} ) $"]) # plot ith feature of different classes   
-        test_result = "KS test on X{}: D={},p={}".format(i+1, D, round(p,3))
-        plt.title('Feature X{} CDF on the two classes\n'.format(i+1) + test_result)
-        plt.legend(loc='upper left')
-        IMG += plt2html(plt) + '<br/>'
-    
-        if show:
-            plt.show()
-        else:
-            plt.close()
+        if cnt < max_plot_num:
 
+            plt.figure()
+            plt.hist(Xcis.T, cumulative=True, histtype=u'step', bins = min(12, int(len(y)/3)), label = ["$ CDF( X_"+str(i+1)+"^{(y_"+str(0)+")} ) $", "$ CDF( X_"+str(i+1)+"^{(y_"+str(1)+")} ) $"]) # plot ith feature of different classes   
+            test_result = "KS test on X{}: D={},p={}".format(i+1, D, round(p,3))
+            plt.title('Feature X{} CDF on the two classes\n'.format(i+1) + test_result)
+            plt.legend(loc='upper left')
+            IMG += plt2html(plt) + '<br/>'
+    
+            if show:
+                plt.show()
+            else:
+                plt.close()
+
+        elif cnt == max_plot_num:
+            IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'     
+        else:
+            pass # plot no more to avoid memory cost
+
+        cnt = cnt+1
+
+    IMG += "<br/>"
     return ps, Ds, IMG
 
 ECoL_METRICS = ['overlapping.F1.mean',
