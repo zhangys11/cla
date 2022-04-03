@@ -1,0 +1,7 @@
+LICENCE
+pyproject.toml
+setup.cfg
+src/pyCLAMs_zhangys.egg-info/PKG-INFO
+src/pyCLAMs_zhangys.egg-info/SOURCES.txt
+src/pyCLAMs_zhangys.egg-info/dependency_links.txt
+src/pyCLAMs_zhangys.egg-info/top_level.txt
