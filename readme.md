@@ -16,7 +16,7 @@ Use the following sample code to use the package:
 
 <pre>
   # import the library
-  from pyCLAMs.pyCLAMs import *
+  from pyCLAMs import clams
 
   # load the dataset or generate a toy dataset by X,y = mvg(md = 2)
   df = pd.read_csv('sample.csv')
@@ -24,12 +24,15 @@ Use the following sample code to use the package:
   y = np.array(df.iloc[:,-1])
 
   # get all metrics
-  get_metrics(X,y) # Return a dictionary of all metrics
+  clams.get_metrics(X,y) # Return a dictionary of all metrics
 
   # get metrics as JSON
-  get_json(X,y)
+  clams.get_json(X,y)
 
   # get an html report and display in Jupyter notebook
   from IPython.display import display, HTML
-  display(HTML(get_html(X,y)))
+  display(HTML(clams.get_html(X,y)))
 </pre>
+
+# Extra Material
+A more friendly GUI tool based on pyCLAMs can be accessed at http://spacs.brahma.pub/research/CLA
