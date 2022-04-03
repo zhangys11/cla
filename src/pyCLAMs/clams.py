@@ -1,11 +1,39 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn import svm
-import uuid
-import scipy
-import pylab, matplotlib
 from .plt2base64 import *
 from .plotComponents2D import *
+from .plotComponents1D import *
+from .feature_importance import *
+from .unsupervised_dimension_reductions import *
+
+import sys, os, uuid, math, re, json
+import scipy, pylab, matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from tqdm import tqdm, tqdm_notebook
+
+from sklearn.preprocessing import MinMaxScaler
+# from scipy.integrate import quad
+from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.svm import SVC
+from sklearn.metrics import *
+from sklearn.feature_selection import mutual_info_classif, chi2
+from sklearn.naive_bayes import GaussianNB
+from sklearn.linear_model import LogisticRegressionCV
+import statsmodels
+from statsmodels.base.model import Model
+from statsmodels.multivariate import manova
+
+import rpy2
+import rpy2.robjects as robjects
+from rpy2.robjects import pandas2ri# Defining the R script and loading the instance in Python
+import rpy2.robjects.packages as rpackages
+from rpy2.robjects.vectors import StrVector,FloatVector
+# import rpy2.robjects.numpy2ri
+from rpy2.robjects.conversion import localconverter
+
 
 # generate and plot 2D multivariate gaussian data set
 def mvg(
@@ -96,11 +124,28 @@ def plot_gaussian_contour (X, y, mu1, s1, mu2, s2, alpha = 0.4, ax = None):
     
     return plt.gca()
 
+def select_features(X, y, metric, metric_name = '', N = 30, feature_names = None):
+    '''
+    Perform feature selection via a specified metric
 
-from sklearn.naive_bayes import GaussianNB
+    Parameters
+    ----------
+    metric : an array of feature-wise metric, e.g., IG, correlation.r2, etc. Usually should be non-negative
+    N : number of feature to select
+    '''
+    N = min(N, X.shape[1])
 
-from sklearn.naive_bayes import GaussianNB
-from scipy.integrate import quad
+    plot_feature_importance(np.array(metric), metric_name, row_size = 300)
+    idx = np.argsort(metric)[::-1][:N] # idx = np.where(F > 30)[0] # np.where(pval < 0.00001)
+    
+    if (feature_names):
+        print('Important feature indices: ', idx)
+        print('Important feature names: ', feature_names[idx])
+
+    X_M = X[:,idx]
+    unsupervised_dimension_reductions(X_M, y, set(y))
+
+    return idx
 
 
 def BER(X ,y, M = 10000, NSigma = 10, show = False, save_fig = ''):
@@ -182,13 +227,6 @@ def BER(X ,y, M = 10000, NSigma = 10, show = False, save_fig = ''):
 
     return BER, IMG #, BER2
 
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import GridSearchCV
-from sklearn.metrics import classification_report
-from sklearn.svm import SVC
-from sklearn.metrics import *
-
 CLF_METRICS = ['classification.ACC',
                'classification.Kappa',
                'classification.F1_Score',
@@ -250,8 +288,6 @@ def grid_search_svm_hyperparams(X, y, test_size = 0.2, tuned_parameters = [
         print(log)
     
     return gs.best_params_, gs.best_estimator_, log # , gs.score(X_train, y_train), gs.score(X_test, y_test), gs.score(X,y), log
-
-from sklearn.linear_model import LogisticRegressionCV
 
 def CLF(X, y, verbose = False, show = False, save_fig = ''):
     '''
@@ -376,8 +412,6 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     LOG += "\n\n" + rpt
         
     return dct, IMG, LOG # acc_train, acc_test, acc_all # , vertice_set # vertice_set[0] is the decision boundary
-
-from sklearn.feature_selection import mutual_info_classif
     
 def IG(X, y, show = False, save_fig = ''):
     """
@@ -387,7 +421,10 @@ def IG(X, y, show = False, save_fig = ''):
     mi_sorted = np.sort(mi)[::-1] # sort in desceding order
     mi_sorted_idx = np.argsort(mi)[::-1]
 
-    plt.figure()
+    if (X.shape[1] > 50):
+        plt.figure(figsize=(20,3))
+    else:
+        plt.figure() # use default fig size
 
     xlabels = []
     for i, v in enumerate(mi_sorted):
@@ -415,12 +452,55 @@ def IG(X, y, show = False, save_fig = ''):
     
     return mi, IMG
 
+def CHISQ(X, y, verbose = False, show = False, save_fig = ''):
+    """
+    Performa feature-wise chi-square test. 
+    Returns an array of chi2 statistics and p-values on all the features.
 
-import statsmodels
-from statsmodels.base.model import Model
-from statsmodels.multivariate import manova
-import re
-import math
+    This test can be used to select the n_features features with the highest values
+    for the test chi-squared statistic from X, which must contain only non-negative
+    features such as booleans or frequencies (e.g., term counts in document 
+    classification), relative to the classes.
+    Recall that the chi-square test measures dependence between stochastic 
+    variables, so using this function “weeds out” the features that are the 
+    most likely to be independent of class and therefore irrelevant for 
+    classification.
+    """
+
+    if (len(set(y)) < 2):
+        raise Exception('The dataset must have at least two classes.')
+    
+    IMG = ''
+    
+    # chi2 test requires scaling to [0,1]
+    mm_scaler = MinMaxScaler()
+    X_mm_scaled = mm_scaler.fit_transform(X)
+
+    CHI2s, ps = chi2(X_mm_scaled, y)
+
+    if (X.shape[1] > 50):
+        plt.figure(figsize=(20,3))
+    else:
+        plt.figure() # use default fig size
+
+    plt.bar(range(len(CHI2s)), CHI2s, facecolor="none", edgecolor = "black", width = 0.3, hatch='/')
+    plt.title('chi squared statistics')
+    # plt.xticks ([]) 
+            
+    if (save_fig != '' and save_fig != None):   
+        if save_fig.endswith('.jpg') == False:
+            save_fig += '.jpg'
+        plt.savefig(save_fig)
+        print('figure saved to ' + save_fig)   
+    
+    IMG = plt2html(plt)
+    
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+    return ps.tolist(), CHI2s.tolist(), IMG
 
 def ANOVA(X,y, verbose = False, show = False):
     """
@@ -493,8 +573,6 @@ def ANOVA(X,y, verbose = False, show = False):
             print(test_result)
 
     return ps, Fs, IMG
-
-import sys
 
 def MANOVA(X,y, verbose = False):
     """
@@ -582,9 +660,6 @@ def MWW(X,y, verbose = False, show = False):
 
     return ps, Us, IMG
 
-
-import numpy as np
-
 def cohen_d(X, y, show = False, save_fig = ''):
     
     labels = list(set(y))
@@ -635,7 +710,7 @@ def cohen_d(X, y, show = False, save_fig = ''):
     
     return d, IMG # d is a 1xn array. n is feature num
 
-def correlate(X,y, verbose = False):
+def correlate(X,y, verbose = False, show = False):
     """
     Performa correlation tests between each feature Xi and y.
     
@@ -678,6 +753,7 @@ def correlate(X,y, verbose = False):
         print(LOG)
 
     dct['correlation.r'] = rs
+    dct['correlation.r2'] = np.power(rs,2) # R2, the R-squared effect size
     dct['correlation.r.p'] = prs
     dct['correlation.r.max'] = np.abs(rs).max() # abs max
     dct['correlation.r.p.min'] = np.min(prs)
@@ -691,6 +767,19 @@ def correlate(X,y, verbose = False):
     dct['correlation.tau.p'] = ptaus
     dct['correlation.tau.max'] = np.abs(taus).max() # abs max
     dct['correlation.tau.p.min'] = np.min(ptaus)
+
+    if (show):
+
+        for key in ['correlation.r', 'correlation.r2', 'correlation.rho', 'correlation.tau']:
+            v = dct[key]
+            if (X.shape[1] > 50):
+                plt.figure(figsize=(20,3))
+            else:
+                plt.figure() # use default fig size
+            plt.bar(list(range(len(v))),v, facecolor="none", edgecolor = "black", width = 0.3, hatch='/')
+            # plt.ylabel(key)
+            plt.title(key)
+            plt.show()
     
     return dct, LOG
 
@@ -736,17 +825,6 @@ def KS(X,y, show = False):
             plt.close()
 
     return ps, Ds, IMG
-
-
-import pandas as pd
-import rpy2.robjects as robjects
-from rpy2.robjects import pandas2ri# Defining the R script and loading the instance in Python
-import rpy2
-import rpy2.robjects.packages as rpackages
-from rpy2.robjects.vectors import StrVector,FloatVector
-import rpy2.robjects.numpy2ri
-from rpy2.robjects import pandas2ri
-from rpy2.robjects.conversion import localconverter
 
 ECoL_METRICS = ['overlapping.F1.mean',
  'overlapping.F1.sd',
@@ -844,8 +922,6 @@ def ECoL_metrics(X,y):
         
     return dct, rpt
 
-import os
-
 def analyze_file(fn):
     if os.path.isfile(fn) == False:
         return 'File ' + fn + ' does not exist.'
@@ -894,6 +970,11 @@ def get_metrics(X,y):
     dct['test.KS.min.log10'] = np.log10 (np.min(p) )
     dct['test.KS.D'] = D
     dct['test.KS.D.max'] = np.max(D) 
+    
+    p, C, _ = CHISQ(X,y)
+    dct['test.CHISQ'] = p
+    dct['test.CHISQ.log10'] = np.log10 (p)
+    dct['test.CHISQ.CHI2'] = C
 
     dct_ecol,_ = ECoL_metrics(X,y)
     dct.update(dct_ecol)
@@ -913,7 +994,6 @@ def metrics_keys():
     dct = get_metrics(X,y)
     return list(dct[0].keys())
 
-import json
 def get_json(X,y):    
     return json.dumps(get_metrics(X,y))
 
@@ -993,11 +1073,6 @@ def get_html(X,y):
 
 
 # try different sample sizes (nobs)
-
-from tqdm import tqdm, tqdm_notebook
-from sklearn.decomposition import PCA
-import seaborn as sns
-
 def simulate(mds, repeat = 1, nobs = 100, dims = 2):
 
     dcts = {}
@@ -1056,7 +1131,6 @@ def simulate(mds, repeat = 1, nobs = 100, dims = 2):
     
     return dcts
 
-import matplotlib.ticker as mticker
 def visualize_dcts(dcts):
     
     N = len(dcts) - 1

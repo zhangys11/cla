@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+﻿import matplotlib.pyplot as plt
 import numpy as np
 
 def plotComponents2D(X, y, labels = None, use_markers = False, ax=None, legends = None, tags = None):
