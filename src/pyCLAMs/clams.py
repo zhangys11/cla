@@ -229,6 +229,10 @@ def BER(X ,y, M = 10000, NSigma = 10, show = False, save_fig = ''):
     return BER, IMG #, BER2
 
 def Mean_KLD (P,Q):
+    '''
+    Calculate the mean KL divergence between ground truth and predicted one-hot encodings for an entire data set.
+    P and Q must be both m x K numpy arrays. m = sample number, K = class number
+    '''
     klds = []
     for idx, ground_truth in enumerate(P):
         prediction = Q[idx]
@@ -409,14 +413,17 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     y_pred = clf.predict(X)
 
     enc = OneHotEncoder(handle_unknown='ignore')
-    y_ohe = enc.fit_transform(y).toarray()
-        
+    y_ohe = enc.fit_transform( np.array(y).reshape(-1,1) ).toarray()
+    # print(y_ohe)
+    # print(y_prob_ohe)
+
     clf_metrics.append( globals()["log_loss"](y, y_prob) )
     clf_metrics.append( Mean_KLD (y_ohe, y_prob_ohe) )
     clf_metrics.append( globals()["average_precision_score"](y, y_prob) )
     clf_metrics.append( globals()["brier_score_loss"](y, y_prob) )
     clf_metrics.append( globals()["roc_auc_score"](y, y_prob) )
-    precisions, recalls, _ = precision_recall_curve(y, y_prob)
+    
+    precisions, recalls, _ = precision_recall_curve(y, y_prob, pos_label = max(y)) # set pos_label for cases when y is not {0,1} or {-1,1}
     clf_metrics.append( globals()["auc"](recalls, precisions) )
 
     
@@ -617,7 +624,11 @@ def MANOVA(X,y, verbose = False):
     X2 = X[:,1]
     df = pd.DataFrame({'X1': X1,'X2': X2,'y':y})
     mv = manova.MANOVA.from_formula('X1 + X2 ~ y', data=df) # Intercept is included by default.
-    r = mv.mv_test()       
+    
+    try:
+        r = mv.mv_test() 
+    except: # LinAlgError: Singular matrix     
+        return math.nan, math.nan, 'Exception in MANOVA'
     
     LOG = ''
     LOG += 'endog: ' + str(mv.endog_names) + '\n'
@@ -669,7 +680,11 @@ def MWW(X,y, verbose = False, show = False, max_plot_num = 5):
 
         Xcis = np.array(Xcis)         
         
-        U,p = scipy.stats.mannwhitneyu(Xcis[0], Xcis[1])    
+        if np.allclose(Xcis[0], Xcis[1]): # ValueError: All numbers are identical in mannwhitneyu
+            U = len(Xcis[0]) * len(Xcis[1]) / 2 # return the theoretical U max: n1*n2/2
+            p = 1 # theoretical max. SPSS will return p = 1.0 for identical samples.
+        else:
+            U,p = scipy.stats.mannwhitneyu(Xcis[0], Xcis[1]) 
         
         ps.append(p)
         Us.append(U)
@@ -1005,10 +1020,13 @@ def get_metrics(X,y):
     dct['test.ANOVA.F'] = F
     dct['test.ANOVA.F.max'] = np.max(F)
 
-    p, F, _ = MANOVA(X,y)
-    dct['test.MANOVA'] = p
-    dct['test.MANOVA.log10'] = np.log10 (p)
-    dct['test.MANOVA.F'] = F
+    p, F, log = MANOVA(X,y)
+    if log == 'Exception in MANOVA':
+        pass
+    else:
+        dct['test.MANOVA'] = p
+        dct['test.MANOVA.log10'] = np.log10 (p)
+        dct['test.MANOVA.F'] = F
 
     p, U, _ = MWW(X,y)
     dct['test.MWW'] = p
@@ -1084,12 +1102,15 @@ def get_html(X,y):
     anova_p, _, anova_img = ANOVA(X,y)
     
     tr = '<tr><td> ANOVA p' + str(anova_p) + '<br/>' + anova_img + '</td><tr>'
-    html += tr    
-    
+    html += tr        
+
     manova_p, _, manova_log = MANOVA(X,y)
-    
-    tr = '<tr><td> MANOVA p = ' + str(manova_p) + '<br/><pre>' + manova_log + '</pre></td><tr>'
-    html += tr  
+
+    if manova_log == 'Exception in MANOVA':
+        pass
+    else:
+        tr = '<tr><td> MANOVA p = ' + str(manova_p) + '<br/><pre>' + manova_log + '</pre></td><tr>'
+        html += tr  
     
     mww_p, _, mww_img = MWW(X,y)
     

@@ -38,5 +38,7 @@ Use the following sample code to use the package:
 A more friendly GUI tool based on pyCLAMs can be accessed at http://spacs.brahma.pub/research/CLA
 
 # Metrics added since the original publication
+
+classification.Mean_KLD - mean KLD (Kullback-Leibler divergence) between ground truth and predicted one-hot encodings  
 correlation.r2 - R2, the R-squared effect size
 test.CHISQ, test.CHISQ.log10, test.CHISQ.CHI2 - Chi-squared test
