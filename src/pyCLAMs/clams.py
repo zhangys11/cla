@@ -22,6 +22,7 @@ from sklearn.metrics import *
 from sklearn.feature_selection import mutual_info_classif, chi2
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegressionCV
+from sklearn.preprocessing import OneHotEncoder
 import statsmodels
 from statsmodels.base.model import Model
 from statsmodels.multivariate import manova
@@ -227,6 +228,14 @@ def BER(X ,y, M = 10000, NSigma = 10, show = False, save_fig = ''):
 
     return BER, IMG #, BER2
 
+def Mean_KLD (P,Q):
+    klds = []
+    for idx, ground_truth in enumerate(P):
+        prediction = Q[idx]
+        kld = scipy.stats.entropy(ground_truth, prediction) # If 2nd param is not None, then compute the Kullback-Leibler divergence. S = sum(pk * log(pk / qk), axis=axis).
+        klds.append(kld)
+    return np.mean(klds), klds
+
 CLF_METRICS = ['classification.ACC',
                'classification.Kappa',
                'classification.F1_Score',
@@ -235,6 +244,7 @@ CLF_METRICS = ['classification.ACC',
                'classification.Recall',
                ## The following requires a model that outputs probability
                'classification.CrossEntropy', # cross-entropy loss / log loss
+               'classification.Mean_KLD',
                'classification.AP',
                'classification.Brier',               
                'classification.ROC_AUC',
@@ -394,15 +404,21 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     ###        
     # train a logistic regression model to compute Brier score, PR AUC, etc.
     # clf = LogisticRegressionCV(cv=5, random_state=0).fit(X, y)    
-    y_prob = clf.predict_proba(X)[:,1] # for binary classification, use the second proba as P(Y=1|X)
+    y_prob_ohe = clf.predict_proba(X)
+    y_prob = y_prob_ohe[:,1] # for binary classification, use the second proba as P(Y=1|X)
     y_pred = clf.predict(X)
+
+    enc = OneHotEncoder(handle_unknown='ignore')
+    y_ohe = enc.fit_transform(y).toarray()
         
     clf_metrics.append( globals()["log_loss"](y, y_prob) )
+    clf_metrics.append( Mean_KLD (y_ohe, y_prob_ohe) )
     clf_metrics.append( globals()["average_precision_score"](y, y_prob) )
     clf_metrics.append( globals()["brier_score_loss"](y, y_prob) )
     clf_metrics.append( globals()["roc_auc_score"](y, y_prob) )
     precisions, recalls, _ = precision_recall_curve(y, y_prob)
     clf_metrics.append( globals()["auc"](recalls, precisions) )
+
     
     rpt = ''    
     for v in zip(CLF_METRICS, clf_metrics):

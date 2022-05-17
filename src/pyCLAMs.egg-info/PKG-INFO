@@ -1,13 +1,11 @@
 Metadata-Version: 2.1
 Name: pyCLAMs
-Version: 0.1.8
+Version: 0.1.9
 Summary: An integrated Python toolkit for classifiability analysis
 Home-page: https://github.com/zhangys11/pyCLAMs
 Author: Yinsheng Zhang (Ph.D.)
 Author-email: oo@zju.edu.cn
-License: UNKNOWN
 Project-URL: Bug Tracker, https://github.com/zhangys11/pyCLAMs/issues
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Operating System :: OS Independent
@@ -58,5 +56,3 @@ A more friendly GUI tool based on pyCLAMs can be accessed at http://spacs.brahma
 # Metrics added since the original publication
 correlation.r2 - R2, the R-squared effect size
 test.CHISQ, test.CHISQ.log10, test.CHISQ.CHI2 - Chi-squared test
-
-

@@ -1,5 +1,4 @@
 LICENCE
-README.md
 pyproject.toml
 setup.cfg
 src/pyCLAMs/__init__.py
