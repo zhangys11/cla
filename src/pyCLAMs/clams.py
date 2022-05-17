@@ -238,7 +238,7 @@ def Mean_KLD (P,Q):
         prediction = Q[idx]
         kld = scipy.stats.entropy(ground_truth, prediction) # If 2nd param is not None, then compute the Kullback-Leibler divergence. S = sum(pk * log(pk / qk), axis=axis).
         klds.append(kld)
-    return np.mean(klds), klds
+    return np.mean(klds) , klds
 
 CLF_METRICS = ['classification.ACC',
                'classification.Kappa',
@@ -418,7 +418,10 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     # print(y_prob_ohe)
 
     clf_metrics.append( globals()["log_loss"](y, y_prob) )
-    clf_metrics.append( Mean_KLD (y_ohe, y_prob_ohe) )
+
+    mkld, _ = Mean_KLD (y_ohe, y_prob_ohe)
+    clf_metrics.append( mkld )
+    
     clf_metrics.append( globals()["average_precision_score"](y, y_prob) )
     clf_metrics.append( globals()["brier_score_loss"](y, y_prob) )
     clf_metrics.append( globals()["roc_auc_score"](y, y_prob) )
@@ -680,7 +683,9 @@ def MWW(X,y, verbose = False, show = False, max_plot_num = 5):
 
         Xcis = np.array(Xcis)         
         
-        if np.allclose(Xcis[0], Xcis[1]): # ValueError: All numbers are identical in mannwhitneyu
+        # Special case for ValueError: All numbers are identical in mannwhitneyu
+        # Don't use np.allclose(Xcis[0], Xcis[1]) as the lengths may differ
+        if len( set (list(Xcis[0]) + list(Xcis[1]) ) ) == 1: 
             U = len(Xcis[0]) * len(Xcis[1]) / 2 # return the theoretical U max: n1*n2/2
             p = 1 # theoretical max. SPSS will return p = 1.0 for identical samples.
         else:
