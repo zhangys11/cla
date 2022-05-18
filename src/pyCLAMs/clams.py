@@ -237,6 +237,11 @@ def Mean_KLD (P,Q):
     for idx, ground_truth in enumerate(P):
         prediction = Q[idx]
         kld = scipy.stats.entropy(ground_truth, prediction) # If 2nd param is not None, then compute the Kullback-Leibler divergence. S = sum(pk * log(pk / qk), axis=axis).
+        
+        # from scipy.special import rel_entr
+        # #calculate (Q || P)
+        # sum(rel_entr(Q, P))
+        
         klds.append(kld)
     return np.mean(klds) , klds
 
