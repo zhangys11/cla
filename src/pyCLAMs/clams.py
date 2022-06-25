@@ -17,7 +17,7 @@ from sklearn.preprocessing import MinMaxScaler
 # from scipy.integrate import quad
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.svm import SVC
+from sklearn.svm import SVC, LinearSVC
 from sklearn.metrics import *
 from sklearn.feature_selection import mutual_info_classif, chi2
 from sklearn.naive_bayes import GaussianNB
@@ -259,6 +259,7 @@ CLF_METRICS = ['classification.ACC',
                'classification.ROC_AUC',
                'classification.PR_AUC']
 
+########## Section: SVM ###########
 
 def grid_search_svm_hyperparams(X, y, test_size = 0.2, tuned_parameters = [
                                     {'kernel': ['rbf'], 'gamma': [10, 1, 1e-1, 1e-2], 'C': [0.01, 0.1, 1, 10, 100, 1000]},         
@@ -307,6 +308,131 @@ def grid_search_svm_hyperparams(X, y, test_size = 0.2, tuned_parameters = [
         print(log)
     
     return gs.best_params_, gs.best_estimator_, log # , gs.score(X_train, y_train), gs.score(X_test, y_test), gs.score(X,y), log
+
+def make_meshgrid(x, y, h=.02):
+    """Create a mesh of points to plot in
+
+    Parameters
+    ----------
+    x: data to base x-axis meshgrid on
+    y: data to base y-axis meshgrid on
+    h: stepsize for meshgrid, optional
+
+    Returns
+    -------
+    xx, yy : ndarray
+    """
+    x_min, x_max = x.min() - 1, x.max() + 1
+    y_min, y_max = y.min() - 1, y.max() + 1
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, h),
+                         np.arange(y_min, y_max, h))
+    return xx, yy
+
+
+def plot_contours(ax, clf, xx, yy, **params):
+    """Plot the decision boundaries for a classifier.
+
+    Parameters
+    ----------
+    ax: matplotlib axes object
+    clf: a classifier
+    xx: meshgrid ndarray
+    yy: meshgrid ndarray
+    params: dictionary of params to pass to contourf, optional
+    """
+    Z = clf.predict(np.c_[xx.ravel(), yy.ravel()]) # requires clf to accept 2D data input
+    Z = Z.reshape(xx.shape)
+    out = ax.contourf(xx, yy, Z, **params)
+    return out
+
+def plot_svm_boundary(X, y, clf, Xn = None):    
+    
+    X0, X1 = X[:, 0], X[:, 1]
+    xx, yy = make_meshgrid(X0, X1)
+
+    cmap = matplotlib.colors.ListedColormap(['0.8', '0.1', 'red', 'blue', 'black','orange','green','cyan','purple','gray'])
+    
+    plt.figure()
+    plot_contours(plt, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.1)
+    plt.scatter(X0, X1, c=y, s=70, facecolors=cmap,  edgecolors='gray', alpha=.4) # cmap='gray'
+    plt.xlim(xx.min(), xx.max())
+    plt.ylim(yy.min(), yy.max())
+    plt.xlabel('X1')
+    plt.ylabel('X2')
+    plt.xticks(())
+    plt.yticks(())
+
+    if Xn is not None:
+        Xn0, Xn1 = Xn[:, 0], Xn[:, 1]
+        plt.scatter(Xn0, Xn1, c='r', s=120, facecolors=cmap,  edgecolors='k', alpha=1, label = 'Sample') # cmap='gray'
+
+    plt.legend()
+    plt.show()    
+    print("SVC({})".format(clf.get_params()))
+
+
+def classify_with_svm(X, y):
+    """Train SVM classifiers
+
+    Parameters
+    ----------
+    X: feature matrix of with 2 columns 
+    y: label    
+    """
+    
+    # we create an instance of SVM and fit out data. We do not scale our
+    # data since we want to plot the support vectors
+    C = 1.0  # SVM regularization parameter
+    models = (SVC(kernel='linear', C=C),
+              LinearSVC(C=C),
+              SVC(kernel='rbf', gamma=0.7, C=C),
+              SVC(kernel='poly', degree=3, C=C))
+    models = (clf.fit(X, y) for clf in models)
+
+    # title for the plots
+    titles = ('SVC - linear kernel',
+              'LinearSVC',
+              'SVC RBF kernel',
+              'SVC polynomial kernel (degree=3)')
+
+    # Set-up 2x2 grid for plotting.
+    fig, sub = plt.subplots(2, 2, figsize=(15,15))
+    plt.subplots_adjust(wspace=0.4, hspace=0.4)
+
+    X0, X1 = X[:, 0], X[:, 1]
+    xx, yy = make_meshgrid(X0, X1)
+
+    for clf, title, ax in zip(models, titles, sub.flatten()):
+        plot_contours(ax, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.1)
+        ax.scatter(X0, X1, c=y, cmap=plt.cm.coolwarm, s=20, edgecolors='k')
+        ax.set_xlim(xx.min(), xx.max())
+        ax.set_ylim(yy.min(), yy.max())
+        ax.set_xlabel('X1')
+        ax.set_ylabel('X2')
+        ax.set_xticks(())
+        ax.set_yticks(())
+        ax.set_title(title + '\n(score: {0:.2})'.format(clf.score(X,y)))
+
+    plt.show()
+
+def plot_wo_svm_boundary(X, y):    
+    
+    X0, X1 = X[:, 0], X[:, 1]
+
+    from matplotlib import colors
+    cmap = colors.ListedColormap(['0.8', '0.1', 'red', 'blue', 'black','orange','green','cyan','purple','gray'])
+    
+    plt.figure()
+    plt.scatter(X0, X1, c=y, s=70, facecolors=cmap,  edgecolors='gray', alpha=.4) # cmap='gray'
+    plt.xlabel('X1')
+    plt.ylabel('X2')
+    plt.xticks(())
+    plt.yticks(())
+    # plt.legend()
+
+    plt.show()
+
+########### End of SVM Section ##########
 
 def CLF(X, y, verbose = False, show = False, save_fig = ''):
     '''
@@ -383,11 +509,11 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
         if (hasattr(clf, "support_vectors_")):
             ax.scatter(clf.support_vectors_[:, 0], clf.support_vectors_[:, 1], s=100,
                        linewidth=1, facecolors='none', edgecolors='k')
-            title = 'kernel = ' + best_params['kernel'] + ", C = " + str(best_params['C']) + " , acc = " + str(round(clf.score(X, y),3)) 
-        
-            if 'gamma' in best_params:
-                title += ", $\gamma$ = " + str(best_params['gamma'])
-            ax.set_title(title)
+            # title = 'kernel = ' + best_params['kernel'] + ", C = " + str(best_params['C']) + " , acc = " + str(round(clf.score(X, y),3)) 
+            # 
+            # if 'gamma' in best_params:
+            #    title += ", $\gamma$ = " + str(best_params['gamma'])
+            #ax.set_title(title)
         
         if (save_fig != '' and save_fig != None):   
             if save_fig.endswith('.jpg') == False:
