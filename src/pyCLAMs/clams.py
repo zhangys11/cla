@@ -259,7 +259,7 @@ CLF_METRICS = ['classification.ACC',
                'classification.ROC_AUC',
                'classification.PR_AUC']
 
-########## Section: SVM ###########
+########## Section: SVM / LR ###########
 
 def grid_search_svm_hyperparams(X, y, test_size = 0.2, tuned_parameters = [
                                     {'kernel': ['rbf'], 'gamma': [10, 1, 1e-1, 1e-2], 'C': [0.01, 0.1, 1, 10, 100, 1000]},         
@@ -345,8 +345,17 @@ def plot_contours(ax, clf, xx, yy, **params):
     out = ax.contourf(xx, yy, Z, **params)
     return out
 
-def plot_svm_boundary(X, y, clf, Xn = None):    
-    
+def plot_svm_boundary(X, y, clf, Xn = None): 
+    return plot_clf_boundary(X, y, clf, Xn = None, clf_type = 'svm')
+
+def plot_lr_boundary(X, y, clf, Xn = None): 
+    return plot_clf_boundary(X, y, clf, Xn = None, clf_type = 'lr')
+
+def plot_clf_boundary(X, y, clf, Xn = None, clf_type = 'svm'):
+    '''
+    clf_type : svm or lr (logistic regression)
+    Xn : data samples to be tested. Will be shown in strong color.
+    '''       
     X0, X1 = X[:, 0], X[:, 1]
     xx, yy = make_meshgrid(X0, X1)
 
@@ -361,6 +370,23 @@ def plot_svm_boundary(X, y, clf, Xn = None):
     plt.ylabel('X2')
     plt.xticks(())
     plt.yticks(())
+
+    if clf_type == 'lr':
+        # Plot K one-against-all classifiers
+        xmin, xmax = plt.xlim()
+        ymin, ymax = plt.ylim()
+        coef = clf.coef_
+        intercept = clf.intercept_
+
+        def plot_hyperplane(c, color):
+            def line(x0):
+                return (-(x0 * coef[c, 0]) - intercept[c]) / coef[c, 1]
+            plt.plot([xmin, xmax], [line(xmin), line(xmax)],
+                    ls=":", color=color, label='clf'+str(c))
+
+        if (len(clf.classes_) > 2):
+            for i, color in zip(clf.classes_, 'bgr'):
+                plot_hyperplane(i, color)
 
     if Xn is not None:
         Xn0, Xn1 = Xn[:, 0], Xn[:, 1]
@@ -415,24 +441,7 @@ def classify_with_svm(X, y):
 
     plt.show()
 
-def plot_wo_svm_boundary(X, y):    
-    
-    X0, X1 = X[:, 0], X[:, 1]
-
-    from matplotlib import colors
-    cmap = colors.ListedColormap(['0.8', '0.1', 'red', 'blue', 'black','orange','green','cyan','purple','gray'])
-    
-    plt.figure()
-    plt.scatter(X0, X1, c=y, s=70, facecolors=cmap,  edgecolors='gray', alpha=.4) # cmap='gray'
-    plt.xlabel('X1')
-    plt.ylabel('X2')
-    plt.xticks(())
-    plt.yticks(())
-    # plt.legend()
-
-    plt.show()
-
-########### End of SVM Section ##########
+########### End of SVM / LR Section ##########
 
 def CLF(X, y, verbose = False, show = False, save_fig = ''):
     '''
