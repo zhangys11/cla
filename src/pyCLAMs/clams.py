@@ -1117,6 +1117,7 @@ def ECoL_metrics(X,y):
     df = pd.DataFrame(M)
     # rdf = com.convert_to_r_dataframe(df)
     # rdf = pandas2ri.py2rpy_pandasdataframe(df)
+    pandas2ri.activate() # To fix NotImplementedError in Raspbian: Conversion 'rpy2py' not defined for objects of type 'rpy2.rinterface.SexpClosure'>'
     with localconverter(robjects.default_converter + pandas2ri.converter):
         rdf = robjects.conversion.py2rpy(df)
     robjects.globalenv['rdf'] = rdf
@@ -1192,9 +1193,12 @@ def get_metrics(X,y):
     dct['test.CHISQ.log10'] = np.log10 (p)
     dct['test.CHISQ.CHI2'] = C
 
-    dct_ecol,_ = ECoL_metrics(X,y)
-    dct.update(dct_ecol)
-    
+    try:
+        dct_ecol,_ = ECoL_metrics(X,y)
+        dct.update(dct_ecol)
+    except Exception as e:
+        print(e)
+
     dct_s = {}
     
     for k, v in dct.items():
@@ -1273,10 +1277,12 @@ def get_html(X,y):
     tr = '<tr><td> ES = ' + str(es) + '<br/>' + es_img + '</td><tr>'
     html += tr
     
-    _, ecol = ECoL_metrics(X,y)
-
-    tr = '<tr><td> ECoL metrics' + '<br/><br/><pre>' + ecol + '</pre></td><tr>'
-    html += tr
+    try:
+        _, ecol = ECoL_metrics(X,y)
+        tr = '<tr><td> ECoL metrics' + '<br/><br/><pre>' + ecol + '</pre></td><tr>'
+        html += tr
+    except Exception as e:
+        print(e)
 
     # dataset summary
     tr = '<tr><th> Dataset Summary </th><tr>' 
