@@ -34,6 +34,10 @@ Use the following sample code to use the package:
   display(HTML(clams.get_html(X,y)))
 </pre>
 
+For first run, pyCLAMs will install the ECoL R package (if not already installed).  
+It will take very long time. You must wait for the installation to complete.  
+You can check by R command 'installed.packages()'.
+
 # Extra Material
 A more friendly GUI tool based on pyCLAMs can be accessed at http://spacs.brahma.pub/research/CLA
 

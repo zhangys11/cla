@@ -1124,6 +1124,19 @@ def ECoL_metrics(X,y):
 
     metrics = robjects.r('''
             # install.packages("ECoL")
+
+            # judge and install
+            packages = c("ECoL", "stats")
+            package.check <- lapply(
+                packages,
+                FUN = function(x) {
+                    if (!require(x, character.only = TRUE)) {
+                        install.packages(x, dependencies = TRUE)
+                        library(x, character.only = TRUE)
+                    }
+                }
+            )
+
             library("ECoL") # , lib.loc = "ECoL" to use the local lib
             complexity(rdf[,1:ncol(rdf)-1], rdf[,ncol(rdf)])
             ''')
