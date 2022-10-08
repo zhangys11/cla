@@ -1,8 +1,11 @@
-from .plt2base64 import *
-from .plotComponents2D import *
-from .plotComponents1D import *
-from .feature_importance import *
-from .unsupervised_dimension_reductions import *
+import importlib.metadata
+__version__ = importlib.metadata.version('pyCLAMs')
+
+from .vis.plt2base64 import *
+from .vis.plotComponents2D import *
+from .vis.plotComponents1D import *
+from .vis.feature_importance import *
+from .vis.unsupervised_dimension_reductions import *
 
 import sys, os, uuid, math, re, json
 import scipy, pylab, matplotlib
@@ -27,14 +30,24 @@ import statsmodels
 from statsmodels.base.model import Model
 from statsmodels.multivariate import manova
 
-import rpy2
-import rpy2.robjects as robjects
-from rpy2.robjects import pandas2ri# Defining the R script and loading the instance in Python
-import rpy2.robjects.packages as rpackages
-from rpy2.robjects.vectors import StrVector,FloatVector
-# import rpy2.robjects.numpy2ri
-from rpy2.robjects.conversion import localconverter
+from sys import platform
 
+ENABLE_R = True
+if platform == "win32" and rpy2.__version__ >= '3.0.0':
+    print('rpy2 3.0 and above doesnot support Windows. ECoL is disabled.')
+    ENABLE_R = False
+
+if ENABLE_R: 
+    try:
+        import rpy2
+        import rpy2.robjects as robjects
+        from rpy2.robjects import pandas2ri# Defining the R script and loading the instance in Python
+        import rpy2.robjects.packages as rpackages
+        from rpy2.robjects.vectors import StrVector,FloatVector
+        # import rpy2.robjects.numpy2ri
+        from rpy2.robjects.conversion import localconverter
+    except Exception as e:
+        print(e)
 
 # generate and plot 2D multivariate gaussian data set
 def mvg(
@@ -1206,11 +1219,12 @@ def get_metrics(X,y):
     dct['test.CHISQ.log10'] = np.log10 (p)
     dct['test.CHISQ.CHI2'] = C
 
-    try:
-        dct_ecol,_ = ECoL_metrics(X,y)
-        dct.update(dct_ecol)
-    except Exception as e:
-        print(e)
+    if ENABLE_R:
+        try:
+            dct_ecol,_ = ECoL_metrics(X,y)
+            dct.update(dct_ecol)
+        except Exception as e:
+            print(e)
 
     dct_s = {}
     
@@ -1290,12 +1304,14 @@ def get_html(X,y):
     tr = '<tr><td> ES = ' + str(es) + '<br/>' + es_img + '</td><tr>'
     html += tr
     
-    try:
-        _, ecol = ECoL_metrics(X,y)
-        tr = '<tr><td> ECoL metrics' + '<br/><br/><pre>' + ecol + '</pre></td><tr>'
-        html += tr
-    except Exception as e:
-        print(e)
+    if ENABLE_R:
+
+        try:
+            _, ecol = ECoL_metrics(X,y)
+            tr = '<tr><td> ECoL metrics' + '<br/><br/><pre>' + ecol + '</pre></td><tr>'
+            html += tr
+        except Exception as e:
+            print(e)
 
     # dataset summary
     tr = '<tr><th> Dataset Summary </th><tr>' 

@@ -3,6 +3,10 @@
 pyCLAMs: An integrated Python toolkit for classifiability analysis [J]. SoftwareX, Volume 18, June 2022, 101007, doi: 10.1016/j.softx.2022.101007  
 https://doi.org/10.1016/j.softx.2022.101007
 
+# Warning
+
+Since 0.3.x, we have reorganized the package structure. Any upper app should be revised accordingly.
+
 # Installation 
 
 pip install pyCLAMs
@@ -16,7 +20,7 @@ Use the following sample code to use the package:
 
 <pre>
   # import the library
-  from pyCLAMs import clams
+  import clams
 
   # load the dataset or generate a toy dataset by X,y = mvg(md = 2)
   df = pd.read_csv('sample.csv')
