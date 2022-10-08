@@ -31,6 +31,7 @@ from statsmodels.base.model import Model
 from statsmodels.multivariate import manova
 
 from sys import platform
+import rpy2
 
 ENABLE_R = True
 if platform == "win32" and rpy2.__version__ >= '3.0.0':
@@ -38,8 +39,7 @@ if platform == "win32" and rpy2.__version__ >= '3.0.0':
     ENABLE_R = False
 
 if ENABLE_R: 
-    try:
-        import rpy2
+    try:        
         import rpy2.robjects as robjects
         from rpy2.robjects import pandas2ri# Defining the R script and loading the instance in Python
         import rpy2.robjects.packages as rpackages
