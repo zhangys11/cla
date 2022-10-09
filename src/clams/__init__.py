@@ -26,7 +26,6 @@ from sklearn.feature_selection import mutual_info_classif, chi2
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import OneHotEncoder
-import statsmodels
 from statsmodels.base.model import Model
 from statsmodels.multivariate import manova
 
