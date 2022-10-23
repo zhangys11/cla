@@ -11,7 +11,11 @@ Since 0.3.x, we have reorganized the package structure. Any upper app should be 
 
 pip install pyCLAMs
 pip install rpy2
-You should also have the R runtime with the ECol library (https://github.com/lpfgarcia/ECoL) installed.
+Install the R runtime and the ECol library (https://github.com/lpfgarcia/ECoL).  
+
+  Run 'install.packages("ECoL")' in R. It will take very long time. You must wait for the installation to complete.     
+  Sometimes, you may want to change the CRAN mirror. Under the "Packages" menu, click "Set CRAN Mirror".    
+  After installation, you can check by R command 'installed.packages()'. 
 
 # How to use 
 
@@ -38,15 +42,14 @@ Use the following sample code to use the package:
   display(HTML(clams.get_html(X,y)))
 </pre>
 
-For first run, pyCLAMs will install the ECoL R package (if not already installed).  
-It will take very long time. You must wait for the installation to complete.  
-You can check by R command 'installed.packages()'.
-
 # Extra Material
 A more friendly GUI tool based on pyCLAMs can be accessed at http://spacs.brahma.pub/research/CLA
 
 # Metrics added since the original publication
 
-classification.Mean_KLD - mean KLD (Kullback-Leibler divergence) between ground truth and predicted one-hot encodings  
-correlation.r2 - R2, the R-squared effect size
-test.CHISQ, test.CHISQ.log10, test.CHISQ.CHI2 - Chi-squared test
+  classification.Mean_KLD - mean KLD (Kullback-Leibler divergence) between ground truth and predicted one-hot encodings  
+  correlation.r2 - R2, the R-squared effect size  
+  test.CHISQ, test.CHISQ.log10, test.CHISQ.CHI2 - Chi-squared test  
+  classification.McNemar, classification.McNemar.CHI2 - McNemar test on the groud-truth and classifier's prediction     
+
+

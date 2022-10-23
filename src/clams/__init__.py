@@ -28,14 +28,15 @@ from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import OneHotEncoder
 from statsmodels.base.model import Model
 from statsmodels.multivariate import manova
+from statsmodels.stats.contingency_tables import mcnemar,cochrans_q
 
 from sys import platform
 import rpy2
 
 ENABLE_R = True
 if platform == "win32" and rpy2.__version__ >= '3.0.0':
-    print('rpy2 3.0 and above doesnot support Windows. ECoL is disabled.')
-    ENABLE_R = False
+    print('rpy2 3.X may not support Windows. ECoL metrics may not be available.')
+    # ENABLE_R = False
 
 if ENABLE_R: 
     try:        
@@ -171,7 +172,7 @@ def BER(X ,y, M = 10000, NSigma = 10, show = False, save_fig = ''):
 
     nb = GaussianNB(priors  = [0.5, 0.5]) # we have no strong prior assumption.
     nb.fit(X, y)
-    
+
     labels = list(set(y))
     
     # For multi-class classification, use one vs rest strategy
@@ -263,6 +264,10 @@ CLF_METRICS = ['classification.ACC',
                'classification.Jaccard', # The Jaccard index, or Jaccard similarity coefficient, defined as the size of the intersection divided by the size of the union of two label sets
                'classification.Precision',
                'classification.Recall',
+               'classification.McNemar', 
+               'classification.McNemar.CHI2', 
+               'classification.CochranQ', 
+               'classification.CochranQ.T', 
                ## The following requires a model that outputs probability
                'classification.CrossEntropy', # cross-entropy loss / log loss
                'classification.Mean_KLD',
@@ -491,7 +496,12 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
         
     # min(grp_samples) is the minimum sample size among all categories. CV requires to be not greater than this value.
 
-    clf = LogisticRegressionCV(cv = min(10, min(grp_samples)), max_iter = 1000).fit(X, y) # ridge(L2) regularization
+    try:
+        clf = LogisticRegressionCV(cv = min(10, min(grp_samples)), max_iter = 1000).fit(X, y) # ridge(L2) regularization
+    except:
+        print('Exception in LogisticRegressionCV().')
+        return None,None,None
+    
     LOG += "regularization strength\t" + str(clf.C_) + "\n\n"
     # l1_ratio: while 1 is equivalent to using penalty='l1'. For 0 < l1_ratio <1, the penalty is a combination of L1 and L2.
 
@@ -557,13 +567,21 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     clf_metrics.append( globals()["precision_score"](y, y_pred) )
     clf_metrics.append( globals()["recall_score"](y, y_pred) )
     
+    res = mcnemar(confusion_matrix(y, y_pred), exact = False, correction=True) 
+    clf_metrics.append(res.pvalue)
+    clf_metrics.append(res.statistic)
+
+    data = np.hstack(( np.array(y).reshape(-1,1), np.array(y_pred).reshape(-1,1) ))
+    res = cochrans_q(data) 
+    clf_metrics.append(res.pvalue)
+    clf_metrics.append(res.statistic)
+
     ###        
     # train a logistic regression model to compute Brier score, PR AUC, etc.
     # clf = LogisticRegressionCV(cv=5, random_state=0).fit(X, y)    
     y_prob_ohe = clf.predict_proba(X)
     y_prob = y_prob_ohe[:,1] # for binary classification, use the second proba as P(Y=1|X)
-    y_pred = clf.predict(X)
-
+    
     enc = OneHotEncoder(handle_unknown='ignore')
     y_ohe = enc.fit_transform( np.array(y).reshape(-1,1) ).toarray()
     # print(y_ohe)
@@ -595,7 +613,13 @@ def IG(X, y, show = False, save_fig = ''):
     """
     Return the feature-wise information gains
     """
-    mi = mutual_info_classif(X, y, discrete_features=False)
+
+    try:
+        mi = mutual_info_classif(X, y, discrete_features=False)
+    except:
+        print('Exception in mutual_info_classif().')
+        return None, None
+
     mi_sorted = np.sort(mi)[::-1] # sort in desceding order
     mi_sorted_idx = np.argsort(mi)[::-1]
 
@@ -772,8 +796,8 @@ def MANOVA(X,y, verbose = False):
     
     if (X.shape[1] <= 1):
         txt = 'There must be more than one dependent variable to fit MANOVA! Use ANOVA to substitute MANOVA.'
-        anova_p, anova_p_log, _, _ = ANOVA_p_value(X,y)
-        return anova_p, anova_p_log, txt
+        anova_p, anova_F, _ = ANOVA(X,y)
+        return anova_p, anova_F, txt
         
     X1 = X[:,0]
     X2 = X[:,1]
@@ -1171,11 +1195,19 @@ def analyze_file(fn):
 def get_metrics(X,y):
     
     dct,_,_ = CLF(X,y)
-    ber, _ = BER(X,y)
-    dct['classification.BER'] = ber
+    if dct is None:
+        dct = {}
+
+    try:
+        ber, _ = BER(X,y)
+        dct['classification.BER'] = ber
+    except:
+        print('Exception in GaussianNB.')
+
     ig, _ = IG(X,y)
-    dct['correlation.IG'] = ig
-    dct['correlation.IG.max'] = ig.max()
+    if ig is not None:
+        dct['correlation.IG'] = ig
+        dct['correlation.IG.max'] = ig.max()
 
     dct_cor,_ = correlate(X,y)
     dct.update(dct_cor)
@@ -1215,8 +1247,10 @@ def get_metrics(X,y):
     
     p, C, _ = CHISQ(X,y)
     dct['test.CHISQ'] = p
-    dct['test.CHISQ.log10'] = np.log10 (p)
+    dct['test.CHISQ.min'] = np.min(p)
+    dct['test.CHISQ.min.log10'] = np.log10 (np.min(p))
     dct['test.CHISQ.CHI2'] = C
+    dct['test.CHISQ.CHI2.max'] = np.max(C)
 
     if ENABLE_R:
         try:
@@ -1252,12 +1286,15 @@ def get_html(X,y):
 
     tr = '<tr><th> Metric/Statistic </th><tr>' # <th> Value </th><th> Details </th>
     html += tr
-    
-    ber, ber_img = BER(X,y,show = False)
 
-    # tr = '<tr><td> BER </td><td>' + str(ber) + '</td><td>' + ber_img + '</td><tr>'
-    tr = '<tr><td> BER = ' + str(ber) + '<br/>' + ber_img + '</td><tr>'
-    html += tr
+    try:
+        ber, ber_img = BER(X,y,show = False)
+
+        # tr = '<tr><td> BER </td><td>' + str(ber) + '</td><td>' + ber_img + '</td><tr>'
+        tr = '<tr><td> BER = ' + str(ber) + '<br/>' + ber_img + '</td><tr>'
+        html += tr
+    except:
+        print('Exception in GaussianNB.')
     
     clf, clf_img, clf_log = CLF(X,y,show = False)
 
@@ -1295,6 +1332,11 @@ def get_html(X,y):
     ks_p,_, ks_img = KS(X,y)
     
     tr = '<tr><td> K-S p = ' + str(ks_p) + '<br/>' + ks_img + '</td><tr>'
+    html += tr   
+
+    chi2s_p,_, chi2s_img = CHISQ(X,y)
+    
+    tr = '<tr><td> CHISQ p = ' + str(chi2s_p) + '<br/>' + chi2s_img + '</td><tr>'
     html += tr    
     
     
