@@ -1438,7 +1438,7 @@ def visualize_dcts(dcts):
         if k == 'd':
             pass
         else:
-            ax = fig.add_subplot(N/6+1, 6, i+1)
+            ax = fig.add_subplot(round(N/6+1), 6, i+1)
             ax.scatter(dcts['d'], v, label = k)
             ax.plot(dcts['d'], v)
             ax.xaxis.set_major_locator(mticker.MultipleLocator(1))
