@@ -11,8 +11,8 @@ Since 1.0.0, we stopped pyCLAMs and switch to cla.
 
 # Installation 
 
-pip install cla (pyCLAMs for versions under 1.0.0)
-pip install rpy2
+pip install cla (pyCLAMs for versions under 1.0.0)  
+pip install rpy2  
 Install the R runtime and the ECol library (https://github.com/lpfgarcia/ECoL).  
 
   Run 'install.packages("ECoL")' in R. It will take very long time. You must wait for the installation to complete.     
