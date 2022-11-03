@@ -1,6 +1,3 @@
-import importlib.metadata
-__version__ = importlib.metadata.version('cla')
-
 from .vis.plt2base64 import *
 from .vis.plotComponents2D import *
 from .vis.plotComponents1D import *
