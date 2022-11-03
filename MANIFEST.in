@@ -1,3 +1,5 @@
 include MANIFEST.in
 recursive-include data *
 include doc.pdf
+recursive-include src/cla/gui/templates *
+recursive-include src/cla/gui/static *

@@ -25,8 +25,8 @@ Download the sample dataset from the /data folder
 Use the following sample code to use the package:
 
 <pre>
-  # import the library (for versions > 1.0.0)
-  from cla import metrics
+  # import clams # (for versions < 1.0.0)  
+  from cla import metrics # (for versions > 1.0.0)  
 
   # load the dataset or generate a toy dataset by X,y = mvg(md = 2)
   df = pd.read_csv('sample.csv')
@@ -44,29 +44,16 @@ Use the following sample code to use the package:
   display(HTML(metrics.get_html(X,y)))
 </pre>
 
-<pre>
-  # import the library (for versions < 1.0.0)
-  import clams
+# Start the web GUI  
 
-  # load the dataset or generate a toy dataset by X,y = mvg(md = 2)
-  df = pd.read_csv('sample.csv')
-  X = np.array(df.iloc[:,:-1]) # skip first and last cols
-  y = np.array(df.iloc[:,-1])
+  1. python -m cla.gui.run
+  2. Open http://localhost:5005/ in your browser. 
+  <img src="wCLAMs.jpg">
+  3. A ready-to-use online demo is http://spacs.brahma.pub/research/CLA
 
-  # get all metrics
-  clams.get_metrics(X,y) # Return a dictionary of all metrics
+<br/>
+<hr/>
 
-  # get metrics as JSON
-  clams.get_json(X,y)
-
-  # get an html report and display in Jupyter notebook
-  from IPython.display import display, HTML
-  display(HTML(clams.get_html(X,y)))
-</pre>
-
-# Extra Material
-
-A more friendly GUI tool based this package can be accessed at http://spacs.brahma.pub/research/CLA
 
 # Metrics and functions added since the original publication
 
