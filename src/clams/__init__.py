@@ -1,5 +1,5 @@
 import importlib.metadata
-__version__ = importlib.metadata.version('pyCLAMs')
+__version__ = importlib.metadata.version('cla')
 
 from .vis.plt2base64 import *
 from .vis.plotComponents2D import *
@@ -51,10 +51,17 @@ if ENABLE_R:
 
 # generate and plot 2D multivariate gaussian data set
 def mvg(
-    nobs = 20, # number of observations / samples
+    nobs = 20, # number of observations / samples per class
     md = 2, # distance between means, respect to std, i.e. (mu2 - mu1) / std, or how many stds is the difference.
     dims = 2, # 1 or 2
     ):
+    '''
+    Draw samples from two multivarite Gaussian distributions with different 𝜇 and Σ values.
+    The simulated data can be used to analyze the properties of different metrics.
+
+    mvg has two important parameters, md and nobs.
+    Theoretically, cohen's d effect size is related to md (distance between means, divided by std) and nobs
+    '''
  
     N = nobs
 
@@ -86,9 +93,62 @@ def mvg(
         
     else:
         
-        raise Exception('only support 1 or 2 dims')
+        xc1 = np.random.randn(N, dims) - md / 2
+        xc2 = np.random.randn(N, dims) + md / 2
+
+        X = np.vstack((xc1, xc2))
+        y = np.concatenate((np.zeros(N), np.ones(N))).astype(int)
+        
+        # raise Exception('only support 1 or 2 dims')
+        print('You specified more than 2 dims. Some metric visualizations will be disabled.')
 
     return X, y
+
+def mvgx(
+    mu, # mean, row vector
+    s, # std, row vector
+    md = 2,
+    nobs = 15
+    ):
+    '''
+    Generate simulated high-dim (e.g., spectroscopic profiling) data
+    This is an extended version of mvg() that accepts specified mu and s vectors.
+    
+    Parameters
+    ----------
+    mu : the mean vector of the target domain dataset. must be row vector
+    s : the standard deviation vector. must be row vector
+    md : distance between means, respect to std, i.e. (mu2 - mu1) / std, or how many stds is the difference.
+    nobs : number of observations / samples per class
+
+    Example
+    -------
+    X,y = mvgx(
+    [-1,0,-1], # mean, row vector
+    [1,2,0.5], # variance, row vector
+    md = 1, # distance between means, respect to std, i.e. (mu2 - mu1) / std, or how many stds is the difference.
+    nobs = 5, # number of observations / samples    
+    )
+    '''    
+    
+    mu = np.array(mu)
+    s = np.array(s)
+ 
+    N = nobs
+    dims = len(mu)
+    cov = np.diag(s**2)
+    
+    mu1 = mu - s * md / 2
+    mu2 = mu + s * md / 2
+    
+    xc1 = np.random.multivariate_normal(mu1, cov, N)
+    xc2 = np.random.multivariate_normal(mu2, cov, N)
+    
+    y = np.concatenate((np.zeros(N), np.ones(N))).astype(int)
+    X = np.vstack((xc1,xc2))
+        
+    return X, y
+
 
 def save_file(X, y, fn):
 
@@ -162,11 +222,11 @@ def select_features(X, y, metric, metric_name = '', N = 30, feature_names = None
     return idx
 
 
-def BER(X ,y, M = 10000, NSigma = 10, show = False, save_fig = ''):
+def BER(X ,y, nobs = 10000, NSigma = 10, show = False, save_fig = ''):
     """
     We draw random samples from the bayes distribution models to calculate BER
     
-    M - sample count
+    nobs - number of observations, i.e., sample size
     NSgima - the sampling range
     """    
 
@@ -198,8 +258,8 @@ def BER(X ,y, M = 10000, NSigma = 10, show = False, save_fig = ''):
     ub = np.maximum(mu1 + NSigma*s1, mu2 + NSigma*s2)
     
     # we use M random samples to calculate BER 
-    XM = np.zeros((M, X.shape[1]))
-    for i in range(M):
+    XM = np.zeros((nobs, X.shape[1]))
+    for i in range(nobs):
         rnd = np.random.random(X.shape[1])
         XM[i, :] = lb + (ub - lb) * rnd
     
@@ -611,7 +671,27 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     
 def IG(X, y, show = False, save_fig = ''):
     """
-    Return the feature-wise information gains
+    Return the feature-wise information gains.
+    It can be proven that Info Gain = Mutual information
+    We can use mutual_info_classif() to calculate info gain.
+
+    Usually we prefer Info Gain over Correlation, because:
+    Correlation only measures the linear relationship (Pearson's correlation) or monotonic relationship (Spearman's correlation) between two variables.
+    Mutual information is more general and measures the reduction of uncertainty in Y after observing X. It is the KL distance between the joint density and the product of the individual densities. So MI can measure non-monotonic relationships and other more complicated relationships.
+
+    Note
+    ----
+    When X is multi-dimensional (i.e., X = X1, X2, …, Xn), IG(Y|X) = IG(Y| X1, X2, …Xn).
+    If we cannot assume the infogain from X1, X2, ..., Xn are not overlapped, we cannot simply add up IG(Y|X1), IG(Y|X2), ..., IG(Y|Xn).
+
+    Implementation Details
+    ----------------------
+    Be cautious about the discrete_features parameter : {‘auto’, bool, array_like}, default ‘auto’ in funciton mutual_info_classif().
+    If bool, then determines whether to consider all features discrete or continuous. If array, then it should be either a boolean mask with shape (n_features,) or array with indices of discrete features. If ‘auto’, it is assigned to False for dense X and to True for sparse X.  
+    For continous feature, use discrete_features = False.
+
+    The term “discrete features” is used instead of naming them “categorical”, because it describes the essence more accurately. For example, pixel intensities of an image are discrete features (but hardly categorical) and you will get better results if mark them as such. Also note, that treating a continuous variable as discrete and vice versa will usually give incorrect results, so be attentive about that.
+    True mutual information can’t be negative. If its estimate turns out to be negative, it is replaced by zero.
     """
 
     try:
@@ -791,7 +871,10 @@ def ANOVA(X,y, verbose = False, show = False, max_plot_num = 5):
 
 def MANOVA(X,y, verbose = False):
     """
-    MANOVA test of the first two features.
+    MANOVA test of the first two features.  
+
+    For some statisticians the MANOVA doesn’t only compare differences in mean scores between multiple groups but also assumes a cause effect relationship whereby one or more independent, controlled variables (the factors) cause the significant difference of one or more characteristics. The factors sort the data points into one of the groups causing the difference in the mean value of the groups.
+    Internally, it uses multivariate regression
     """    
     
     if (X.shape[1] <= 1):
@@ -899,6 +982,19 @@ def MWW(X,y, verbose = False, show = False, max_plot_num = 5):
     return ps, Us, IMG
 
 def cohen_d(X, y, show = False, save_fig = ''):
+    '''
+    Cohen’s d is a type of effect size between two means. Cohen’s d values are also known as the standardised mean difference (SMD).
+    e.g., partial eta sqaured is the percentage of variance in the dependent variable (y) explained by the independent variable (x). 
+
+    Statistical significance (p) only tells "there is a difference not due to pure chance", while the effect size is a quantitative measure of the magnitude for the difference between two means Or the degree to which $H_0$ is false. Size of difference.   
+    That's why sometimes we prefer effective size over p value.
+    
+    Effect size of Cohen's d
+    ------------------------
+    d > .2 : small 
+    d > .5 : medium
+    d > .8 : large
+    '''
     
     labels = list(set(y))
     
@@ -1193,11 +1289,20 @@ def analyze_file(fn):
     return get_html(X,y)
     
 def get_metrics(X,y):
+    '''
+    Addionally, we can do a PCA for high-dim data to get X beforehand.   
+    We assume the covariance matrix is diagnal, i.e.   
+
+    $\Sigma = \begin{bmatrix} \sigma^2_1 & 0 \\ 0 & \sigma^2_2 \end{bmatrix}  $
+
+    This means x1 and x2 are linearly uncorrelated.   
+    If we plot two PCs from PCA，the PCs will also be linearly uncorrelated, because they are the projections on two different orthogonal eigenvectors. 
+    '''
     
     dct,_,_ = CLF(X,y)
     if dct is None:
         dct = {}
-
+ 
     try:
         ber, _ = BER(X,y)
         dct['classification.BER'] = ber
@@ -1442,7 +1547,7 @@ def visualize_dcts(dcts):
             ax.scatter(dcts['d'], v, label = k)
             ax.plot(dcts['d'], v)
             ax.xaxis.set_major_locator(mticker.MultipleLocator(1))
-            ax.legend()
+            ax.legend() # loc='upper center'
             ax.axis('tight')
         i += 1
         
@@ -1494,7 +1599,7 @@ def visualize_corr_matrix(dcts, cmap = 'coolwarm', exclude_d = True):
     print('Metrics above the threshold: ', np.array(names[1:]) [np.where( np.abs(dfM.corr().values[0,1:])>0.9 )])
 
 def extract_PC(dcts):
-    
+
     M = dcts['d']
     names = []
     

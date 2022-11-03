@@ -1,7 +1,7 @@
 
 *.pyc
 dist/
-src/pyCLAMs.egg-info/
+*.egg-info/
 notebooks/.ipynb_checkpoints/pyCLAMs-checkpoint.ipynb
 notebooks/.ipynb_checkpoints/rpy2-checkpoint.ipynb
 notebooks/rpy2.ipynb
