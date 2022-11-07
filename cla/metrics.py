@@ -218,7 +218,6 @@ def select_features(X, y, metric, metric_name = '', N = 30, feature_names = None
 
     return idx
 
-
 def BER(X ,y, nobs = 10000, NSigma = 10, show = False, save_fig = ''):
     """
     We draw random samples from the bayes distribution models to calculate BER
@@ -666,6 +665,15 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
         
     return dic, IMG, LOG # acc_train, acc_test, acc_all # , vertice_set # vertice_set[0] is the decision boundary
     
+def SVM_Margin_Width(X,y,show=False, save_fig = ''):
+    '''
+    SVM hyperplane margin width
+    '''
+    width = 1
+    IMG = ''
+    return width, IMG
+    
+
 def IG(X, y, show = False, save_fig = ''):
     """
     Return the feature-wise information gains.
@@ -1306,6 +1314,9 @@ def get_metrics(X,y):
     except:
         print('Exception in GaussianNB.')
 
+    svm_width, _ = SVM_Margin_Width(X, y)
+    dic['classification.SVM.Margin'] = svm_width
+
     ig, _ = IG(X,y)
     if ig is not None:
         dic['correlation.IG'] = ig
@@ -1397,6 +1408,11 @@ def get_html(X,y):
         html += tr
     except:
         print('Exception in GaussianNB.')
+
+    svm_margin, svm_margin_img = SVM_Margin_Width(X,y,show = False)
+
+    tr = '<tr><td> SVM Margin Width = ' + str(svm_margin) + '<br/>' + svm_margin_img + '</td><tr>'
+    html += tr
     
     clf, clf_img, clf_log = CLF(X,y,show = False)
 
