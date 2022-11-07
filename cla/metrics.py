@@ -522,7 +522,7 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     X,y - features and labels
     '''
     
-    dct = {}
+    dic = {}
     clf_metrics = []
     LOG = ''
 
@@ -660,11 +660,11 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     rpt = ''    
     for v in zip(CLF_METRICS, clf_metrics):
         rpt += v[0] + "\t" + str(v[1]) + "\n"
-        dct[v[0]] = v[1]
+        dic[v[0]] = v[1]
         
     LOG += "\n\n" + rpt
         
-    return dct, IMG, LOG # acc_train, acc_test, acc_all # , vertice_set # vertice_set[0] is the decision boundary
+    return dic, IMG, LOG # acc_train, acc_test, acc_all # , vertice_set # vertice_set[0] is the decision boundary
     
 def IG(X, y, show = False, save_fig = ''):
     """
@@ -1047,7 +1047,7 @@ def correlate(X,y, verbose = False, show = False):
     
     """       
 
-    dct = {}
+    dic = {}
     
     rs = []
     rhos = []
@@ -1083,26 +1083,26 @@ def correlate(X,y, verbose = False, show = False):
     if verbose:
         print(LOG)
 
-    dct['correlation.r'] = rs
-    dct['correlation.r2'] = np.power(rs,2) # R2, the R-squared effect size
-    dct['correlation.r.p'] = prs
-    dct['correlation.r.max'] = np.abs(rs).max() # abs max
-    dct['correlation.r.p.min'] = np.min(prs)
+    dic['correlation.r'] = rs
+    dic['correlation.r2'] = np.power(rs,2) # R2, the R-squared effect size
+    dic['correlation.r.p'] = prs
+    dic['correlation.r.max'] = np.abs(rs).max() # abs max
+    dic['correlation.r.p.min'] = np.min(prs)
     
-    dct['correlation.rho'] = rhos
-    dct['correlation.rho.p'] = prhos
-    dct['correlation.rho.max'] = np.abs(rhos).max() # abs max
-    dct['correlation.rho.p.min'] = np.min(prhos)
+    dic['correlation.rho'] = rhos
+    dic['correlation.rho.p'] = prhos
+    dic['correlation.rho.max'] = np.abs(rhos).max() # abs max
+    dic['correlation.rho.p.min'] = np.min(prhos)
     
-    dct['correlation.tau'] = taus
-    dct['correlation.tau.p'] = ptaus
-    dct['correlation.tau.max'] = np.abs(taus).max() # abs max
-    dct['correlation.tau.p.min'] = np.min(ptaus)
+    dic['correlation.tau'] = taus
+    dic['correlation.tau.p'] = ptaus
+    dic['correlation.tau.max'] = np.abs(taus).max() # abs max
+    dic['correlation.tau.p.min'] = np.min(ptaus)
 
     if (show):
 
         for key in ['correlation.r', 'correlation.r2', 'correlation.rho', 'correlation.tau']:
-            v = dct[key]
+            v = dic[key]
             if (X.shape[1] > 50):
                 plt.figure(figsize=(20,3))
             else:
@@ -1112,7 +1112,7 @@ def correlate(X,y, verbose = False, show = False):
             plt.title(key)
             plt.show()
     
-    return dct, LOG
+    return dic, LOG
 
 def KS(X,y, show = False, max_plot_num = 5):
     """
@@ -1271,12 +1271,12 @@ def ECoL_metrics(X,y):
             ''')
     
     rpt = ''
-    dct = {}
+    dic = {}
     for v in zip(ECoL_METRICS, metrics):
         rpt += v[0] + "\t" + str(v[1]) + "\n"
-        dct[v[0]] = v[1]
+        dic[v[0]] = v[1]
         
-    return dct, rpt
+    return dic, rpt
 
 def analyze_file(fn):
     if os.path.isfile(fn) == False:
@@ -1296,85 +1296,85 @@ def get_metrics(X,y):
     If we plot two PCs from PCA，the PCs will also be linearly uncorrelated, because they are the projections on two different orthogonal eigenvectors. 
     '''
     
-    dct,_,_ = CLF(X,y)
-    if dct is None:
-        dct = {}
+    dic,_,_ = CLF(X,y)
+    if dic is None:
+        dic = {}
  
     try:
         ber, _ = BER(X,y)
-        dct['classification.BER'] = ber
+        dic['classification.BER'] = ber
     except:
         print('Exception in GaussianNB.')
 
     ig, _ = IG(X,y)
     if ig is not None:
-        dct['correlation.IG'] = ig
-        dct['correlation.IG.max'] = ig.max()
+        dic['correlation.IG'] = ig
+        dic['correlation.IG.max'] = ig.max()
 
-    dct_cor,_ = correlate(X,y)
-    dct.update(dct_cor)
+    dic_cor,_ = correlate(X,y)
+    dic.update(dic_cor)
 
     es, _ = cohen_d(X, y)
-    dct['test.ES'] = es
-    dct['test.ES.max'] = es.max()
+    dic['test.ES'] = es
+    dic['test.ES.max'] = es.max()
 
     p, F, _ = ANOVA(X,y)
-    dct['test.ANOVA'] = p
-    dct['test.ANOVA.min'] = np.min(p)
-    dct['test.ANOVA.min.log10'] = np.log10 (np.min(p) )
-    dct['test.ANOVA.F'] = F
-    dct['test.ANOVA.F.max'] = np.max(F)
+    dic['test.ANOVA'] = p
+    dic['test.ANOVA.min'] = np.min(p)
+    dic['test.ANOVA.min.log10'] = np.log10 (np.min(p) )
+    dic['test.ANOVA.F'] = F
+    dic['test.ANOVA.F.max'] = np.max(F)
 
     p, F, log = MANOVA(X,y)
     if log == 'Exception in MANOVA':
         pass
     else:
-        dct['test.MANOVA'] = p
-        dct['test.MANOVA.log10'] = np.log10 (p)
-        dct['test.MANOVA.F'] = F
+        dic['test.MANOVA'] = p
+        dic['test.MANOVA.log10'] = np.log10 (p)
+        dic['test.MANOVA.F'] = F
 
     p, U, _ = MWW(X,y)
-    dct['test.MWW'] = p
-    dct['test.MWW.min'] = np.min(p)
-    dct['test.MWW.min.log10'] = np.log10 (np.min(p) )
-    dct['test.MWW.U'] = U
-    dct['test.MWW.U.min'] = np.min(U) 
+    dic['test.MWW'] = p
+    dic['test.MWW.min'] = np.min(p)
+    dic['test.MWW.min.log10'] = np.log10 (np.min(p) )
+    dic['test.MWW.U'] = U
+    dic['test.MWW.U.min'] = np.min(U) 
 
     p, D, _ = KS(X,y)
-    dct['test.KS'] = p
-    dct['test.KS.min'] = np.min(p)
-    dct['test.KS.min.log10'] = np.log10 (np.min(p) )
-    dct['test.KS.D'] = D
-    dct['test.KS.D.max'] = np.max(D) 
+    dic['test.KS'] = p
+    dic['test.KS.min'] = np.min(p)
+    dic['test.KS.min.log10'] = np.log10 (np.min(p) )
+    dic['test.KS.D'] = D
+    dic['test.KS.D.max'] = np.max(D) 
     
     p, C, _ = CHISQ(X,y)
-    dct['test.CHISQ'] = p
-    dct['test.CHISQ.min'] = np.min(p)
-    dct['test.CHISQ.min.log10'] = np.log10 (np.min(p))
-    dct['test.CHISQ.CHI2'] = C
-    dct['test.CHISQ.CHI2.max'] = np.max(C)
+    dic['test.CHISQ'] = p
+    dic['test.CHISQ.min'] = np.min(p)
+    dic['test.CHISQ.min.log10'] = np.log10 (np.min(p))
+    dic['test.CHISQ.CHI2'] = C
+    dic['test.CHISQ.CHI2.max'] = np.max(C)
 
     if ENABLE_R:
         try:
-            dct_ecol,_ = ECoL_metrics(X,y)
-            dct.update(dct_ecol)
+            dic_ecol,_ = ECoL_metrics(X,y)
+            dic.update(dic_ecol)
         except Exception as e:
             print(e)
 
-    dct_s = {}
+    dic_s = {}
     
-    for k, v in dct.items():
+    for k, v in dic.items():
         if hasattr(v, "__len__"): # this is an np array or list
-            dct[k] = list(v)
+            dic[k] = list(v)
         else: # this only contains single-value metrics
-            dct_s[k] = v
+            dic_s[k] = v
 
-    return dct, dct_s
+    return dic, dic_s
 
 def metrics_keys():
     X, y = mvg(md = 2, nobs = 10)
-    dct = get_metrics(X,y)
-    return list(dct[0].keys())
+    dic = get_metrics(X,y)
+    return list(dic[0].keys())
 
 def get_json(X,y):    
     return json.dumps(get_metrics(X,y))
@@ -1469,11 +1469,16 @@ def get_html(X,y):
     return html
 
 
-# try different sample sizes (nobs)
 def simulate(mds, repeat = 1, nobs = 100, dims = 2):
+    '''
+    Try different mds (between-group distances)
 
-    dcts = {}
-    
+    Parameters
+    ----------
+    mds : an array. between-classes mean distances    
+    '''
+
+    dic = {}    
 
     ## splits (divide 1 std into how many sections) * repeat         
     pbar = tqdm(total = len(mds) * repeat, position=0)
@@ -1483,7 +1488,7 @@ def simulate(mds, repeat = 1, nobs = 100, dims = 2):
 
     for md in mds:
         
-        dct = {}
+        raw_dic = {}
         
         for i in range(repeat):
             X,y = mvg(
@@ -1497,52 +1502,55 @@ def simulate(mds, repeat = 1, nobs = 100, dims = 2):
             ## if detailed:
             #    print('d = ', round(md,3))
             
-            _, dct1 = get_metrics(X,y)
-            for k, v in dct1.items():
-                if k in dct:
-                    dct[k].append(v) # dct[k] = dct[k] + v
+            _, dic1 = get_metrics(X,y)
+            for k, v in dic1.items():
+                if k in raw_dic:
+                    raw_dic[k].append(v) # dic[k] = dic[k] + v
                 else:
-                    dct[k] = [v] # v
+                    raw_dic[k] = [v] # v
             
             pbar.update()
             ## End of inner iteration ##
 
-        for k, v in dct.items():
+        for k, v in raw_dic.items():
 
             trim_size = int(repeat / 10) 
 
             if (repeat > 10): # remove the max and min
-                dct[k] = np.mean(sorted(v)[trim_size:-trim_size])
+                raw_dic[k] = np.mean(sorted(v)[trim_size:-trim_size])
             else:
-                dct[k] = np.mean(v)
+                raw_dic[k] = np.mean(v)
             
         ## End of outer iteration ##
     
-        for k, v in dct.items():
-            if k in dcts:
-                dcts[k] = np.append(dcts[k], v)
+        for k, v in raw_dic.items():
+            if k in dic:
+                dic[k] = np.append(dic[k], v)
             else:
-                dcts[k] = np.array([v])
+                dic[k] = np.array([v])
     
-    dcts['d'] = np.array(mds)
+    dic['d'] = np.array(mds)
     
-    return dcts
+    return dic
 
-def visualize_dcts(dcts):
+def visualize_dict(dic):
+    '''
+    Visualize the metric dictionary returned from simulate()  
+    '''
     
-    N = len(dcts) - 1
+    N = len(dic) - 1
     
     fig = plt.figure(figsize=(48, 10*(N/10+1)))
     plt.rcParams.update({'font.size': 18})
     
     i = 0
-    for k, v in dcts.items():
+    for k, v in dic.items():
         if k == 'd':
             pass
         else:
             ax = fig.add_subplot(round(N/6+1), 6, i+1)
-            ax.scatter(dcts['d'], v, label = k)
-            ax.plot(dcts['d'], v)
+            ax.scatter(dic['d'], v, label = k)
+            ax.plot(dic['d'], v)
             ax.xaxis.set_major_locator(mticker.MultipleLocator(1))
             ax.legend() # loc='upper center'
             ax.axis('tight')
@@ -1553,22 +1561,17 @@ def visualize_dcts(dcts):
 
     plt.rcParams.update({'font.size': 10})
     
-def visualize_corr_matrix(dcts, cmap = 'coolwarm', exclude_d = True):
+def visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = 0.5):
     
-    M = dcts['d']
+    M = dic['d']
     names = ['d']
     
-    for k, v in dcts.items():
-        if k == 'd' or len(v) != len(dcts['d']):
+    for k, v in dic.items():
+        if k == 'd' or len(v) != len(dic['d']):
             pass
         else:
             M = np.vstack((M, v))
             names.append(k)
-            
-    # exclude the d column
-    if (exclude_d):
-        M = M[1:]
-        names = names[1:]
 
     plt.figure(figsize = (36,30))
     dfM = pd.DataFrame(M.T, columns = names) #, columns = ['d', 'BER', 'ACC', 'TOR', 'IG', 'MAN'])
@@ -1585,23 +1588,26 @@ def visualize_corr_matrix(dcts, cmap = 'coolwarm', exclude_d = True):
     plt.show()
     
     plt.figure(figsize = (20, 7))
-    plt.bar(names[1:], np.abs(dfM.corr().values[0,1:]), facecolor="none", edgecolor = "black", width = 0.8, label = 'correlation coefficient (abs)') # ,width = 0.6, hatch='x'
-    plt.plot(names[1:], [0.9] * len(names[1:]), '--', label = 'threshold at 0.9')
+    plt.bar(names[1:], np.abs(dfM.corr().values[0,1:]), 
+    facecolor="none", edgecolor = "black", 
+    width = 0.8, label = 'R2 effect size') # ,width = 0.6, hatch='x'
+    plt.plot(names[1:], [0.9] * len(names[1:]), '--', 
+    label = 'threshold = ' + str(threshold))
     plt.title('correlation with between-class distance')
     plt.xticks(rotation = 90)
     plt.legend(loc = 'lower right')
     plt.show()
     
     # print(np.where( np.abs(dfM.corr().values[0,1:])>0.9 ))
-    print('Metrics above the threshold: ', np.array(names[1:]) [np.where( np.abs(dfM.corr().values[0,1:])>0.9 )])
+    print('Metrics above the threshold: ', np.array(names[1:]) [np.where( np.square(dfM.corr().values[0,1:])>threshold )])
 
-def extract_PC(dcts):
+def extract_PC(dic):
 
-    M = dcts['d']
+    M = dic['d']
     names = []
     
-    for k, v in dcts.items():
-        if k == 'd' or len(v) != len(dcts['d']) or np.isnan(v).any():
+    for k, v in dic.items():
+        if k == 'd' or len(v) != len(dic['d']) or np.isnan(v).any():
             pass
         else:
             M = np.vstack((M, v))
