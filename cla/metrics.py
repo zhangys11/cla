@@ -1549,6 +1549,17 @@ def simulate(mds, repeat = 1, nobs = 100, dims = 2):
     
     return dic
 
+def generate_html_for_dict(dic):
+    s = '<table>'
+    for k in dic:
+        s += '<tr>'
+        s += '<td>' + str(k) + '</td>'
+        for item in dic[k]:            
+            s+= '<td>' + str(round(item,3)) + '</td>' # item[0] is key, item[1] is value           
+        s+= '</tr>'
+    s += '</table>'
+    return s
+
 def visualize_dict(dic):
     '''
     Visualize the metric dictionary returned from simulate()  
@@ -1570,7 +1581,7 @@ def visualize_dict(dic):
             ax.xaxis.set_major_locator(mticker.MultipleLocator(1))
             ax.legend() # loc='upper center'
             ax.axis('tight')
-        i += 1
+            i += 1
         
     plt.axis('tight')
     plt.show()

@@ -8,7 +8,7 @@ from .vis.plotComponents2D import *
 from .vis.plotComponents1D import *
 from .vis.feature_importance import *
 from .vis.unsupervised_dimension_reductions import *
-from .metrics import get_metrics, visualize_dict, visualize_corr_matrix
+from .metrics import get_metrics, visualize_dict, visualize_corr_matrix, generate_html_for_dict
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -57,7 +57,7 @@ def mvgx(
     return X, y
 
 def calculate_atom_metrics(mu, s, mds, repeat = 1, nobs = 100, 
-display = True, html = True):
+show_curve = True, show_html = True):
     '''
     Calculate atom metric values for different mds (between-group distances)
 
@@ -66,7 +66,8 @@ display = True, html = True):
     mu : mean vector
     s : std vector
     mds : an array. between-classes mean distances (in std). e.g., np.linspace(0,1,10)
-    html : whether output an inline HTML table of metrics
+    show_curve : whether output each metric curve against the between-class distance 
+    show_html : whether output an inline HTML table of metrics
 
     Example
     -------
@@ -127,20 +128,15 @@ display = True, html = True):
             else:
                 dic[k] = np.array([v])
     
-    if display:
+    if show_curve:
+        print('visualize_dict()')
         visualize_dict(dic)
 
-    if html:
-
-        for k in dic:
-            s+= '<tr>'
-            s += '<td>' + str(k) + '</td>'
-            for item in dic[k]:            
-                s+= '<td>' + str(round(item,3)) + '</td>' # item[0] is key, item[1] is value           
-            s+= '</tr>'
-        s += '</table>'
+    if show_html:
+        print('generate_html_for_dict()')
+        s = generate_html_for_dict(dic)
         display(HTML(s))
-    
+
     return dic
 
 def filter_metrics(dic, threshold = 0.25, display = True):
