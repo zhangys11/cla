@@ -17,6 +17,33 @@ from IPython.core.display import display, HTML
 import numpy as np
 import pandas as pd
 import scipy
+from sklearn.linear_model import LinearRegression, LogisticRegression
+import pickle
+import joblib
+from datetime import datetime
+
+def analyze(X,y):
+    '''
+    An include-all function that trains a meta-learner model of unified single metric.
+    And use that metric to evaluate the between-class and in-class classifiability.  
+
+    Return
+    ------
+    umetric_bw : between-class unified metric
+    umetric_in : in-class unified metric
+    pkl_file : pickle filepath for persisting the atom metric dict
+    '''
+    dic = calculate_atom_metrics(mu = X.mean(axis = 0), s = X.std(axis = 0),
+                             mds = np.linspace(0, 6, 7+6*2),
+                             repeat = 5, nobs = 100, 
+                             show_curve = True, show_html = True)
+    pkl_file = str(datetime.now()).replace(':','').replace('-','').replace(' ','') + '.pkl'                         
+    joblib.dump(dic, pkl_file) # later we can reload with: dic = joblib.load('x.pkl')
+    dic_r2, keys, filtered_dic, M = filter_metrics(dic, threshold = 0.5)  
+    model = train_metalearner(M, dic['d'])
+    umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys)
+
+    return umetric_bw, umetric_in, pkl_file
 
 def mvgx(
     mu, # mean, row vector
@@ -160,10 +187,14 @@ def filter_metrics(dic, threshold = 0.25, display = True):
     '''
     y = dic['d']
 
-    dic_r2 = []
+    dic_r2 = {}
     keys = []
-    filtered_dic = []
+    filtered_dic = {}
     M = []
+
+    if display:
+        print('before filter')
+        visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = threshold)
 
     for k, x in dic.items():
         if k == 'd':
@@ -176,10 +207,76 @@ def filter_metrics(dic, threshold = 0.25, display = True):
                 filtered_dic[k] = x
                 M.append(x)
 
-    if display:
-        print('before filter')
-        visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = threshold)
-        print('after filter')
-        visualize_corr_matrix(filtered_dic, cmap = 'coolwarm', threshold = 0.5)
+    #if display:
+        # print('after filter')
+        # visualize_corr_matrix(filtered_dic, cmap = 'coolwarm', threshold = 0.5)
 
     return dic_r2, keys, filtered_dic, np.array(M).T
+
+def train_metalearner(M, d):
+    '''
+    Train meta-learner using the atom metric matrix and the distance array.
+
+    Note
+    ----
+    In the original publication, we use a linear regressor as the meta-learner.
+    In thee new version, we use logistic regression, to cover the between-class distance range (0-6std).
+    For d = 6std means almost no overlap, the meta-learner will return 1
+    '''
+    clf = LogisticRegression().fit(M, d) # to fit d into the 0~1 range
+    print('Score: ', clf.score(M, d))
+    print('Coef and Intercept: ', clf.coef_, clf.intercept_)
+    return clf
+
+def calculate_unified_metric(X, y, model, keys):
+    '''
+    First, fit a linear regression (meta-learner) model for M on d.
+    Then, calcualte the between-class and in-class unified metric on real dataset X and y. 
+
+    Parameters
+    ----------
+    model : meta-learner model, returned by train_metalearner()
+    keys : selected metric names, returned by filter_metrics()
+    '''
+    return AnalyzeBetweenClass(X ,y, model, keys), AnalyzeInClass(X, y, model, keys, repeat = 10)
+
+def AnalyzeBetweenClass(X, y, model, keys):
+
+    X_pca = PCA(n_components = 2).fit_transform(X)
+    plotComponents2D(X_pca, y)
+
+    _, new_dic = get_metrics(X, y)
+    vec_metrics = []
+
+    for key in keys:
+        vec_metrics.append(new_dic[key])
+        
+    vec_metrics = np.nan_to_num(vec_metrics)
+    umetric = model.predict([vec_metrics.T])[0]
+    print("between-class unified metric = ", umetric)
+    return umetric
+
+def AnalyzeInClass(X, y, model, keys, repeat = 5):
+
+    umetrics = []
+
+    for c in set(y):
+        Xc = X[y == c]
+        d = 0        
+
+        for i in range(repeat):
+            yc = (np.random.rand(len(Xc)) > 0.5).astype(int) # random assign y labels
+            _, new_dic = get_metrics(Xc, yc)
+            vec_metrics = []
+            for key in keys:
+                vec_metrics.append(new_dic[key])
+
+            vec_metrics = np.nan_to_num(vec_metrics)
+            d += model.predict([vec_metrics.T])[0]            
+
+        print("c = ", int(c), ", in-class unified metric = ", d/repeat)
+        X_pca = PCA(n_components = 2).fit_transform(Xc)
+        plotComponents2D(X_pca, y[y == c]) #, tags=range(len(X_pca)))
+        umetrics.append(d/repeat)
+
+    return umetrics

@@ -1588,7 +1588,7 @@ def visualize_dict(dic):
 
     plt.rcParams.update({'font.size': 10})
     
-def visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = 0.5):
+def visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = 0.25):
     
     M = dic['d']
     names = ['d']
@@ -1605,28 +1605,31 @@ def visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = 0.5):
 
     # plot the heatmap
     # sns.heatmap(np.abs(dfM.corr()), cmap="YlGnBu", annot=True)
-    sns.heatmap(dfM.corr(), cmap=cmap, annot=True) # use diverging colormap, e.g., seismic, coolwarm, bwr
+    sns.heatmap(dfM.corr(), cmap=cmap, annot=True) # should use diverging colormap, e.g., seismic, coolwarm, bwr
 
     plt.tick_params(axis='both', which='major', labelsize=10)
     plt.tick_params(axis='both', which='minor', labelsize=10)
     plt.rcParams['xtick.labelsize'] = 10
     plt.rcParams['ytick.labelsize'] = 10
     # plt.rcParams.update({'font.size': 10})   # restore fontsize
+    ## https://stackoverflow.com/questions/56942670/matplotlib-seaborn-first-and-last-row-cut-in-half-of-heatmap-plot
+    # bottom, top = ax.get_ylim()
+    # ax.set_ylim(bottom + 0.5, top - 0.5)
     plt.show()
     
     plt.figure(figsize = (20, 7))
-    plt.bar(names[1:], np.abs(dfM.corr().values[0,1:]), 
+    plt.bar(names[1:], np.square(dfM.corr().values[0,1:]), 
     facecolor="none", edgecolor = "black", 
     width = 0.8, label = 'R2 effect size') # ,width = 0.6, hatch='x'
-    plt.plot(names[1:], [0.9] * len(names[1:]), '--', 
-    label = 'threshold = ' + str(threshold))
-    plt.title('correlation with between-class distance')
+    plt.plot(names[1:], [threshold] * len(names[1:]), '--', 
+    label = 'R2 threshold = ' + str(threshold))
+    plt.title('R2 effect size of the correlation with between-class distance')
     plt.xticks(rotation = 90)
     plt.legend(loc = 'lower right')
     plt.show()
-    
+
     # print(np.where( np.abs(dfM.corr().values[0,1:])>0.9 ))
-    print('Metrics above the threshold: ', np.array(names[1:]) [np.where( np.square(dfM.corr().values[0,1:])>threshold )])
+    print('Metrics above the threshold (' + str(threshold) + '): ', np.array(names[1:]) [np.where( np.square(dfM.corr().values[0,1:])>threshold )])
 
 def extract_PC(dic):
 

@@ -63,6 +63,10 @@ Use the following sample code to use the package:
   correlation.r2 - R2, the R-squared effect size  
   test.CHISQ, test.CHISQ.log10, test.CHISQ.CHI2 - Chi-squared test  
   classification.McNemar, classification.McNemar.CHI2 - McNemar test on the groud-truth and classifier's prediction     
+  classification.SVM.Margin - the linear-SVC's margin width  
+
+  TODO: test.KW, test.KW.min, test.KW.min.log10, test.KW.H, test.KW.H.max  
+  test.Median, test.Median.min, test.Median.min.log10, test.Median.T, test.Median.T.max  
 
 ## 2. refactor
 
