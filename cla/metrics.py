@@ -665,24 +665,24 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
         
     return dic, IMG, LOG # acc_train, acc_test, acc_all # , vertice_set # vertice_set[0] is the decision boundary
 
-from sklearn.preprocessing import StandardScaler
-def SVM_Margin_Width(X, y, show=False, save_fig=''):
+def SVM_Margin_Width(X, y, scale = False, show = False, save_fig=''):
 
     '''
     SVM hyperplane margin width
     '''
 
-    s = StandardScaler()
-    X = s.fit_transform(X)
+    if scale:
+        X = MinMaxScaler().fit_transform(X)
 
-    C = 10
-    svc_model = SVC(C=C, kernel='linear')
+    svc_model = SVC(kernel='linear') # C = 10
     svc_model = svc_model.fit(X, y)
 
     support_vectors = svc_model.support_vectors_
     w = svc_model.coef_[0]
     p = np.linalg.norm(w, ord=2)
     width = 2/p
+
+    IMG = ''
 
     if len(support_vectors[1]) == 2 and len(set(y)) == 2:
         df = pd.DataFrame(X)
@@ -708,13 +708,16 @@ def SVM_Margin_Width(X, y, show=False, save_fig=''):
         for label in labels:
             cluster = X[np.where(y == label)]
             plt.scatter(cluster[:, 0], cluster[:, 1])
-        IMG = plt.show()
 
-    else:
-        IMG = None
+
+        IMG = plt2html(plt)
+    
+        if show:
+            plt.show()
+        else:
+            plt.close()
 
     return width, IMG
-    
 
 def IG(X, y, show = False, save_fig = ''):
     """
