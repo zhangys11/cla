@@ -664,13 +664,55 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     LOG += "\n\n" + rpt
         
     return dic, IMG, LOG # acc_train, acc_test, acc_all # , vertice_set # vertice_set[0] is the decision boundary
-    
-def SVM_Margin_Width(X,y,show=False, save_fig = ''):
+
+from sklearn.preprocessing import StandardScaler
+def SVM_Margin_Width(X, y, show=False, save_fig=''):
+
     '''
     SVM hyperplane margin width
     '''
-    width = 1
-    IMG = ''
+
+    s = StandardScaler()
+    X = s.fit_transform(X)
+
+    C = 10
+    svc_model = SVC(C=C, kernel='linear')
+    svc_model = svc_model.fit(X, y)
+
+    support_vectors = svc_model.support_vectors_
+    w = svc_model.coef_[0]
+    p = np.linalg.norm(w, ord=2)
+    width = 2/p
+
+    if len(support_vectors[1]) == 2 and len(set(y)) == 2:
+        df = pd.DataFrame(X)
+
+        x_min = np.min(df.iloc[:, 0]) - 0.5
+        x_max = np.max(df.iloc[:,  0]) + 0.5
+        y_min = np.min(df.iloc[:, 1]) - 0.5
+        y_max = np.max(df.iloc[:, 1]) + 0.5
+
+        x = np.arange(x_min, x_max, 0.1)
+        y0 = -svc_model.intercept_/w[1]-w[0]/w[1]*x
+        y_up = (1-svc_model.intercept_)/w[1]-w[0]/w[1]*x
+        y_down = (-1 - svc_model.intercept_) / w[1] - w[0] / w[1] * x
+
+        plt.plot(x, y0)
+        plt.plot(x, y_up, linestyle='--')
+        plt.plot(x, y_down, linestyle='--')
+        plt.ylim(y_min , y_max)
+        plt.xlim(x_min , x_max)
+
+        labels = set(y)
+
+        for label in labels:
+            cluster = X[np.where(y == label)]
+            plt.scatter(cluster[:, 0], cluster[:, 1])
+        IMG = plt.show()
+
+    else:
+        IMG = None
+
     return width, IMG
     
 
