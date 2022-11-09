@@ -669,6 +669,12 @@ def SVM_Margin_Width(X, y, scale = False, show = False, save_fig=''):
 
     '''
     SVM hyperplane margin width
+
+    Note
+    ----
+    When the between-class distance is small (< 3std), there are many overlaps, 
+    the margin width is big. 
+    This metric is only linear after the distance is big enough.
     '''
 
     if scale:

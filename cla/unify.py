@@ -83,7 +83,8 @@ def mvgx(
         
     return X, y
 
-def calculate_atom_metrics(mu, s, mds, repeat = 1, nobs = 100, 
+def calculate_atom_metrics(mu, s, mds, 
+repeat = 3, nobs = 100, 
 show_curve = True, show_html = True):
     '''
     Calculate atom metric values for different mds (between-group distances)
@@ -213,9 +214,16 @@ def filter_metrics(dic, threshold = 0.25, display = True):
 
     return dic_r2, keys, filtered_dic, np.array(M).T
 
-def train_metalearner(M, d):
+def train_metalearner(M, d, cutoff = 2):
     '''
     Train meta-learner using the atom metric matrix and the distance array.
+
+    Parameter
+    ---------
+    cutoff : use this cutoff to convert d to binary values, 
+    as we use logistic regression as the meta-learner output. 
+    default is 2, i.e., if md > 2, we deem it as fairly classifiable.  
+    If you want more resolution in the lower range, choose a smaller cutoff.
 
     Note
     ----
@@ -223,7 +231,10 @@ def train_metalearner(M, d):
     In thee new version, we use logistic regression, to cover the between-class distance range (0-6std).
     For d = 6std means almost no overlap, the meta-learner will return 1
     '''
-    clf = LogisticRegression().fit(M, d) # to fit d into the 0~1 range
+    
+    d = np.array(d) >= cutoff # np.median(d)
+
+    clf = LogisticRegression(max_iter=1000, solver='liblinear').fit(M, d) 
     print('Score: ', clf.score(M, d))
     print('Coef and Intercept: ', clf.coef_, clf.intercept_)
     return clf
@@ -252,9 +263,9 @@ def AnalyzeBetweenClass(X, y, model, keys):
         vec_metrics.append(new_dic[key])
         
     vec_metrics = np.nan_to_num(vec_metrics)
-    umetric = model.predict([vec_metrics.T])[0]
-    print("between-class unified metric = ", umetric)
-    return umetric
+    umetric = model.predict_proba([vec_metrics.T])[0]
+    print("between-class unified metric = ", umetric[1])
+    return umetric[1]
 
 def AnalyzeInClass(X, y, model, keys, repeat = 5):
 
@@ -272,7 +283,7 @@ def AnalyzeInClass(X, y, model, keys, repeat = 5):
                 vec_metrics.append(new_dic[key])
 
             vec_metrics = np.nan_to_num(vec_metrics)
-            d += model.predict([vec_metrics.T])[0]            
+            d += model.predict_proba([vec_metrics.T])[0][1]           
 
         print("c = ", int(c), ", in-class unified metric = ", d/repeat)
         X_pca = PCA(n_components = 2).fit_transform(Xc)
