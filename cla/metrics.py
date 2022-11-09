@@ -840,6 +840,16 @@ def CHISQ(X, y, verbose = False, show = False, save_fig = ''):
 
     return ps.tolist(), CHI2s.tolist(), IMG
 
+def KW(X,y, verbose = False, show = False):
+    
+    # return ps, Hs, IMG
+    pass
+
+def MedianTest(X,y, verbose = False, show = False):
+    
+    # return ps, Ts, IMG
+    pass
+
 def ANOVA(X,y, verbose = False, show = False, max_plot_num = 5):
     """
     Performa feature-wise ANOVA test. Returns an array of p-values on all the features and its minimum.
@@ -1415,6 +1425,20 @@ def get_metrics(X,y):
     dic['test.CHISQ.min.log10'] = np.log10 (np.min(p))
     dic['test.CHISQ.CHI2'] = C
     dic['test.CHISQ.CHI2.max'] = np.max(C)
+
+    p, H, _ = KW(X,y)
+    dic['test.KW'] = p
+    dic['test.KW.min'] = np.min(p)
+    dic['test.KW.min.log10'] = np.log10 (np.min(p))
+    dic['test.KW.H'] = H
+    dic['test.KW.H.max'] = np.max(H)
+
+    p, T, _ = MedianTest(X,y)
+    dic['test.Median'] = p
+    dic['test.Median.min'] = np.min(p)
+    dic['test.Median.min.log10'] = np.log10 (np.min(p))
+    dic['test.Median.T'] = T
+    dic['test.Median.T.max'] = np.max(T)
 
     if ENABLE_R:
         try:
