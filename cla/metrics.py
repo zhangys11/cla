@@ -876,8 +876,6 @@ def KW(X, y, verbose=False, show=False):
 
     return ps,Hs
 
-
-from scipy import stats
 def T_IND(X, y, verbose=False, show=False):
     if (len(set(y)) != 2):
         raise Exception('The dataset must have 2 classes.')
