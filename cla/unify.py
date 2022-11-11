@@ -22,10 +22,14 @@ import pickle
 import joblib
 from datetime import datetime
 
-def analyze(X,y):
+def analyze(X,y,use_filter=True):
     '''
     An include-all function that trains a meta-learner model of unified single metric.
     And use that metric to evaluate the between-class and in-class classifiability.  
+
+    Parameter
+    ---------
+    use_filter : whether to use R2 to filter highly correlated atom metrics
 
     Return
     ------
@@ -39,7 +43,8 @@ def analyze(X,y):
                              show_curve = True, show_html = True)
     pkl_file = str(datetime.now()).replace(':','').replace('-','').replace(' ','') + '.pkl'                         
     joblib.dump(dic, pkl_file) # later we can reload with: dic = joblib.load('x.pkl')
-    dic_r2, keys, filtered_dic, M = filter_metrics(dic, threshold = 0.5)  
+    
+    _, keys, _, M = filter_metrics(dic, threshold = (0.5 if use_filter else None))
     model = train_metalearner(M, dic['d'])
     umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys)
 
@@ -172,6 +177,11 @@ def filter_metrics(dic, threshold = 0.25, display = True):
     Calculate the linear regression R2 effect size of each metric with d.
     We use the R2 to filter metrics.
 
+    Parameter
+    ---------
+    threshold : R2 threshold.
+        If None, will keep all the original atom metrics
+
     Return
     ------
     dic_r2 : R2 values
@@ -194,7 +204,8 @@ def filter_metrics(dic, threshold = 0.25, display = True):
     M = []
 
     if display:
-        print('before filter')
+        if threshold is not None:
+            print('before filter')
         visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = threshold)
 
     for k, x in dic.items():
@@ -203,7 +214,7 @@ def filter_metrics(dic, threshold = 0.25, display = True):
         else:
             slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(x,y)
             dic_r2[k] = r_value**2
-            if dic_r2[k] > threshold:
+            if threshold is None or dic_r2[k] > threshold:
                 keys.append(k)
                 filtered_dic[k] = x
                 M.append(x)
