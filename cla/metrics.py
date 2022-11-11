@@ -946,6 +946,29 @@ def MedianTest(X,y, verbose = False, show = False):
         ps.append(p)
         Gs.append(G)
 
+    x = ('class1', 'class2')
+    plt.figure()
+    plt.bar(x, a1, width=0.3)
+    plt.title(
+        'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y0)')
+    plt.figure()
+    plt.bar(x, a2, width=0.3)
+    plt.title(
+        'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y1)')
+
+    c1 = TBL[1][:, 0]
+    c2 = TBL[1][:, 1]
+
+    x = ('class1', 'class2')
+    plt.figure()
+    plt.bar(x, c1, width=0.3)
+    plt.title(
+        'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y0)')
+    plt.figure()
+    plt.bar(x, c2, width=0.3)
+    plt.title(
+        'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y1)')
+
     print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
     print('The values of G statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Gs))
     
