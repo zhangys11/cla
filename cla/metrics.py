@@ -850,6 +850,12 @@ def MedianTest(X,y, verbose = False, show = False):
     # return ps, Ts, IMG
     pass
 
+def T_IND(X, y, verbose = False, show = False):
+    '''
+    A t-independent test
+    '''
+    pass
+
 def ANOVA(X,y, verbose = False, show = False, max_plot_num = 5):
     """
     Performa feature-wise ANOVA test. Returns an array of p-values on all the features and its minimum.
@@ -886,6 +892,7 @@ def ANOVA(X,y, verbose = False, show = False, max_plot_num = 5):
             f,p= scipy.stats.f_oneway(Xcis[0], Xcis[1], Xcis[2], Xcis[3])
         elif (len(set(y)) >= 5): # if there are five or more classes
             f,p= scipy.stats.f_oneway(Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4])
+            print('WARN: only the first 5 classes will be analyzed.')
         
         """
         Alternative implementation using sm.stats.anova_lm
@@ -1389,6 +1396,13 @@ def get_metrics(X,y):
     es, _ = cohen_d(X, y)
     dic['test.ES'] = es
     dic['test.ES.max'] = es.max()
+
+    p, T, _ = T_IND(X,y)
+    dic['test.TI'] = p
+    dic['test.TI.min'] = np.min(p)
+    dic['test.TI.min.log10'] = np.log10 (np.min(p) )
+    dic['test.TI.T'] = T
+    dic['test.TI.T.max'] = np.max(T)
 
     p, F, _ = ANOVA(X,y)
     dic['test.ANOVA'] = p
