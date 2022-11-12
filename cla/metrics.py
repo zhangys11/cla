@@ -916,12 +916,14 @@ def T_IND(X, y, verbose=False, show=False):
 
     return ps, Ts, IMG
 
-def MedianTest(X,y, verbose = False, show = False):
+def MedianTest(X, y, verbose=False, show=False):
     if (len(set(y)) < 2):
         raise Exception('The dataset must have at least 2 classes.')
 
     ps = []
     Gs = []
+    MED = []
+    TBL = []
 
     for i in range(X.shape[1]):
         Xi = X[:, i]
@@ -934,44 +936,50 @@ def MedianTest(X,y, verbose = False, show = False):
         Xcis = np.array(Xcis)
 
         if len(set(y)) == 2:
-            G, p = stats.median_test(Xcis[0],Xcis[1])
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1])
         elif len(set(y)) == 3:
-            G, p = stats.median_test(Xcis[0], Xcis[1], Xcis[2])
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2])
         elif len(set(y)) == 4:
-            G, p = stats.median_test(Xcis[0], Xcis[1], Xcis[2],Xcis[3])
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3])
         elif len(set(y)) >= 5:
-            G, p = stats.median_test(Xcis[0], Xcis[1], Xcis[2],Xcis[3],Xcis[4])
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4])
             print("WARN: only the first 5 classes will be analyzed.")
 
         ps.append(p)
         Gs.append(G)
+        MED.append(med)
+        TBL.append(tbl)
 
-    x = ('class1', 'class2')
-    plt.figure()
-    plt.bar(x, a1, width=0.3)
-    plt.title(
-        'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y0)')
-    plt.figure()
-    plt.bar(x, a2, width=0.3)
-    plt.title(
-        'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y1)')
+        a1 = TBL[0][:, 0]
+        a2 = TBL[0][:, 1]
 
-    c1 = TBL[1][:, 0]
-    c2 = TBL[1][:, 1]
+    if len(X[0])==2 and len(set(y))==2:
+        x = ('class1', 'class2')
+        plt.figure()
+        plt.bar(x, a1, width=0.3)
+        plt.title(
+                'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y0)')
+        plt.figure()
+        plt.bar(x, a2, width=0.3)
+        plt.title(
+                'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y1)')
 
-    x = ('class1', 'class2')
-    plt.figure()
-    plt.bar(x, c1, width=0.3)
-    plt.title(
-        'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y0)')
-    plt.figure()
-    plt.bar(x, c2, width=0.3)
-    plt.title(
-        'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y1)')
+        c1 = TBL[1][:, 0]
+        c2 = TBL[1][:, 1]
 
+        x = ('class1', 'class2')
+        plt.figure()
+        plt.bar(x, c1, width=0.3)
+        plt.title(
+            'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y0)')
+        plt.figure()
+        plt.bar(x, c2, width=0.3)
+        plt.title(
+            'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y1)')
+        plt.show()
     print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
     print('The values of G statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Gs))
-    
+
     return Gs, ps
 
 
