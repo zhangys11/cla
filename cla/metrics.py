@@ -840,21 +840,148 @@ def CHISQ(X, y, verbose = False, show = False, save_fig = ''):
 
     return ps.tolist(), CHI2s.tolist(), IMG
 
-def KW(X,y, verbose = False, show = False):
-    
-    # return ps, Hs, IMG
-    pass
+from scipy import stats
+def KW(X, y, verbose=False, show=False):
+    if (len(set(y)) < 2):
+        raise Exception('The dataset must have at least 2 classes.')
 
-def MedianTest(X,y, verbose = False, show = False):
-    
-    # return ps, Ts, IMG
-    pass
+    ps = []
+    Hs = []
 
-def T_IND(X, y, verbose = False, show = False):
-    '''
-    A t-independent test
-    '''
-    pass
+    for i in range(X.shape[1]):
+        Xi = X[:, i]
+        Xcis = []
+
+        for c in set(y):
+            Xc = Xi[y == c]
+            Xcis.append(Xc)
+
+        Xcis = np.array(Xcis)
+
+        if len(set(y)) == 2:
+            H, p = stats.kruskal(Xcis[0],Xcis[1])
+        elif len(set(y)) == 3:
+            H, p = stats.kruskal(Xcis[0], Xcis[1], Xcis[2])
+        elif len(set(y)) == 4:
+            H, p = stats.kruskal(Xcis[0], Xcis[1], Xcis[2],Xcis[3])
+        elif len(set(y)) >= 5:
+            H, p = stats.kruskal(Xcis[0], Xcis[1], Xcis[2],Xcis[4],Xcis[5])
+            print("WARN: only the first 5 classes will be analyzed.")
+
+        ps.append(p)
+        Hs.append(H)
+
+    print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
+    print('The values of H statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Hs))
+
+    return ps,Hs
+
+def T_IND(X, y, verbose=False, show=False):
+    if (len(set(y)) != 2):
+        raise Exception('The dataset must have 2 classes.')
+
+    ps=[]
+    Ts=[]
+
+    for i in range(X.shape[1]):
+        Xi = X[:, i]
+        Xcis = []
+
+        labels = []
+        for c in set(y):
+            Xc = Xi[y == c]
+            Xcis.append(Xc)
+            labels.append("$ X_" + str(i + 1) + "^{( y_" + str(c) + " )} $")
+
+        Xcis = np.array(Xcis)
+
+        bar=stats.bartlett(Xcis[0],Xcis[1])[1]
+        lev=stats.levene(Xcis[0],Xcis[1])[1]
+
+        if bar>0.5 or lev>0.5:
+            T, p = stats.ttest_ind(Xcis[0],Xcis[1])
+        else:
+            T, p = stats.ttest_ind(Xcis[0], Xcis[1],equal_var=False)
+
+        plt.boxplot(Xcis.T, notch=False, labels=labels)
+        test_result = "MedianTest on X{}: T={},p={}".format(i + 1, round(T,3), p)
+        plt.title(test_result)
+        IMG=plt.show()
+
+        ps.append(p)
+        Ts.append(T)
+
+    print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
+    print('The values of T statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Ts))
+
+    return ps, Ts, IMG
+
+def MedianTest(X, y, verbose=False, show=False):
+    if (len(set(y)) < 2):
+        raise Exception('The dataset must have at least 2 classes.')
+
+    ps = []
+    Gs = []
+    MED = []
+    TBL = []
+
+    for i in range(X.shape[1]):
+        Xi = X[:, i]
+        Xcis = []
+
+        for c in set(y):
+            Xc = Xi[y == c]
+            Xcis.append(Xc)
+
+        Xcis = np.array(Xcis)
+
+        if len(set(y)) == 2:
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1])
+        elif len(set(y)) == 3:
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2])
+        elif len(set(y)) == 4:
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3])
+        elif len(set(y)) >= 5:
+            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4])
+            print("WARN: only the first 5 classes will be analyzed.")
+
+        ps.append(p)
+        Gs.append(G)
+        MED.append(med)
+        TBL.append(tbl)
+
+        a1 = TBL[0][:, 0]
+        a2 = TBL[0][:, 1]
+
+    if len(X[0])==2 and len(set(y))==2:
+        x = ('class1', 'class2')
+        plt.figure()
+        plt.bar(x, a1, width=0.3)
+        plt.title(
+                'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y0)')
+        plt.figure()
+        plt.bar(x, a2, width=0.3)
+        plt.title(
+                'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y1)')
+
+        c1 = TBL[1][:, 0]
+        c2 = TBL[1][:, 1]
+
+        x = ('class1', 'class2')
+        plt.figure()
+        plt.bar(x, c1, width=0.3)
+        plt.title(
+            'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y0)')
+        plt.figure()
+        plt.bar(x, c2, width=0.3)
+        plt.title(
+            'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y1)')
+        plt.show()
+    print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
+    print('The values of G statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Gs))
+
+    return Gs, ps
+
 
 def ANOVA(X,y, verbose = False, show = False, max_plot_num = 5):
     """
