@@ -278,7 +278,7 @@ def AnalyzeBetweenClass(X, y, model, keys):
     print("between-class unified metric = ", umetric[1])
     return umetric[1]
 
-def AnalyzeInClass(X, y, model, keys, repeat = 5):
+def AnalyzeInClass(X, y, model, keys, repeat = 3):
 
     umetrics = []
 

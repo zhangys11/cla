@@ -64,9 +64,9 @@ Use the following sample code to use the package:
   test.CHISQ, test.CHISQ.log10, test.CHISQ.CHI2 - Chi-squared test  
   classification.McNemar, classification.McNemar.CHI2 - McNemar test on the groud-truth and classifier's prediction     
   classification.SVM.Margin - the linear-SVC's margin width  
-
-  TODO: test.KW, test.KW.min, test.KW.min.log10, test.KW.H, test.KW.H.max  
-  test.Median, test.Median.min, test.Median.min.log10, test.Median.T, test.Median.T.max  
+  test.student, test.student.min, test.student.min.log10, test.student.T, test.student.T.max  
+  test.KW, test.KW.min, test.KW.min.log10, test.KW.H, test.KW.H.max  
+  test.Median, test.Median.min, test.Median.min.log10, test.Median.CHI2, test.Median.CHI2.max  
 
 ## 2. refactor
 

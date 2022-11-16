@@ -248,7 +248,7 @@ def BER(X ,y, nobs = 10000, NSigma = 10, show = False, save_fig = ''):
     
     #print(mu1, mu2)
     #print(s1, s2)
-    #print(nb.sigma_)
+    #print(nb.var_)
     
     lb = np.minimum(mu1 - NSigma*s1, mu2 - NSigma*s2)
     ub = np.maximum(mu1 + NSigma*s1, mu2 + NSigma*s2)
@@ -276,10 +276,10 @@ def BER(X ,y, nobs = 10000, NSigma = 10, show = False, save_fig = ''):
         
     if X.shape[1] == 2:
         # for 2-dimensional data, plot the contours        
-        ax = plot_gaussian_contour (X, y, nb.theta_[0], nb.sigma_[0], nb.theta_[1], nb.sigma_[1], alpha = 0.3)
+        ax = plot_gaussian_contour (X, y, nb.theta_[0], np.sqrt(nb.var_[0]), nb.theta_[1], np.sqrt(nb.var_[1]), alpha = 0.3)
         plotComponents2D(X, y, set(y), use_markers = False, ax = ax)
         plt.legend()
-        title = ' $ \mu $ = ' + str(np.round(nb.theta_, 3) ) + ', $\sigma$ = ' + str( np.round(nb.sigma_,3) ).replace('\n','')
+        title = ' $ \mu $ = ' + str(np.round(nb.theta_, 3) ) + ', $\sigma^2$ = ' + str( np.round(nb.var_,3) ).replace('\n','')
         plt.title(title)
         
         if (save_fig != '' and save_fig != None):   
@@ -790,7 +790,7 @@ def IG(X, y, show = False, save_fig = ''):
     
     return mi, IMG
 
-def CHISQ(X, y, verbose = False, show = False, save_fig = ''):
+def CHISQ(X, y, show = False, save_fig = ''):
     """
     Performa feature-wise chi-square test. 
     Returns an array of chi2 statistics and p-values on all the features.
@@ -840,10 +840,24 @@ def CHISQ(X, y, verbose = False, show = False, save_fig = ''):
 
     return ps.tolist(), CHI2s.tolist(), IMG
 
-from scipy import stats
-def KW(X, y, verbose=False, show=False):
+
+def KW(X, y, verbose=False):
+    '''
+    A Kruskal-Wallis test is used to determine whether or not 
+    there is a statistically significant difference between 
+    the medians of three or more independent groups. 
+    This test is the nonparametric equivalent of the one-way ANOVA 
+    and is typically used when the normality assumption is violated.
+
+    Mann-Whitney或Wilcoxon检验比较两组，而Kruskal-Wallis检验比较3组及以上。
+    Kruskal-Wallis检验是一种非参数的单因素方差分析。它是基于秩（排序的，只考虑相对大小）的。
+
+    由于KW检验考虑了样本的排序信息,而不仅仅是大于或小于中位数,因此比median test具有更大的power
+    '''
+
     if (len(set(y)) < 2):
-        raise Exception('The dataset must have at least 2 classes.')
+        print('The dataset must have at least 2 classes.')
+        return None, None
 
     ps = []
     Hs = []
@@ -859,29 +873,37 @@ def KW(X, y, verbose=False, show=False):
         Xcis = np.array(Xcis)
 
         if len(set(y)) == 2:
-            H, p = stats.kruskal(Xcis[0],Xcis[1])
+            H, p = scipy.stats.kruskal(Xcis[0],Xcis[1],nan_policy='omit')
         elif len(set(y)) == 3:
-            H, p = stats.kruskal(Xcis[0], Xcis[1], Xcis[2])
+            H, p = scipy.stats.kruskal(Xcis[0], Xcis[1], Xcis[2],nan_policy='omit')
         elif len(set(y)) == 4:
-            H, p = stats.kruskal(Xcis[0], Xcis[1], Xcis[2],Xcis[3])
+            H, p = scipy.stats.kruskal(Xcis[0], Xcis[1], Xcis[2],Xcis[3],nan_policy='omit')
         elif len(set(y)) >= 5:
-            H, p = stats.kruskal(Xcis[0], Xcis[1], Xcis[2],Xcis[4],Xcis[5])
+            H, p = scipy.stats.kruskal(Xcis[0], Xcis[1], Xcis[2],Xcis[3],Xcis[4],nan_policy='omit')
             print("WARN: only the first 5 classes will be analyzed.")
 
         ps.append(p)
         Hs.append(H)
 
-    print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
-    print('The values of H statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Hs))
+    if verbose:
+        print('The P values for X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
+        print('The values of H statistics for X in dimensions 1 to {}:{}'.format(len(X[0]), Hs))
 
     return ps,Hs
 
-def T_IND(X, y, verbose=False, show=False):
+def T_IND(X, y, verbose=False, show=False, max_plot_num = 5):
+    '''
+    independent t test. requires two classes/groups.
+    '''
+    
     if (len(set(y)) != 2):
-        raise Exception('The dataset must have 2 classes.')
+        print('The dataset must have 2 classes.')
+        return None, None, None
 
     ps=[]
     Ts=[]
+    cnt = 0
+    IMG = ''
 
     for i in range(X.shape[1]):
         Xi = X[:, i]
@@ -895,35 +917,57 @@ def T_IND(X, y, verbose=False, show=False):
 
         Xcis = np.array(Xcis)
 
-        bar=stats.bartlett(Xcis[0],Xcis[1])[1]
-        lev=stats.levene(Xcis[0],Xcis[1])[1]
+        bar=scipy.stats.bartlett(Xcis[0],Xcis[1])[1]
+        lev=scipy.stats.levene(Xcis[0],Xcis[1])[1]
 
         if bar>0.5 or lev>0.5:
-            T, p = stats.ttest_ind(Xcis[0],Xcis[1])
+            T, p = scipy.stats.ttest_ind(Xcis[0],Xcis[1])
         else:
-            T, p = stats.ttest_ind(Xcis[0], Xcis[1],equal_var=False)
-
-        plt.boxplot(Xcis.T, notch=False, labels=labels)
-        test_result = "MedianTest on X{}: T={},p={}".format(i + 1, round(T,3), p)
-        plt.title(test_result)
-        IMG=plt.show()
+            T, p = scipy.stats.ttest_ind(Xcis[0], Xcis[1],equal_var=False)
 
         ps.append(p)
         Ts.append(T)
 
-    print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
-    print('The values of T statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Ts))
+        if (cnt < max_plot_num):
+            plt.figure()
+            plt.boxplot(Xcis.T, notch=False, labels=labels) # plot ith feature of different classes   
+            test_result = "independent t test on X{}: T={},p={}".format(i + 1, round(T,3), round(p,3))
+            # plt.legend(labels)
+            plt.title(test_result)
+            IMG += plt2html(plt)
+    
+            if show:
+                plt.show()
+            else:
+                plt.close()
+        elif cnt == max_plot_num:
+            IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'     
+        else:
+            pass # plot no more to avoid memory cost
+
+    if verbose:
+        print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
+        print('The values of T statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Ts))
 
     return ps, Ts, IMG
 
 def MedianTest(X, y, verbose=False, show=False):
+    '''
+    中位数检验是独立性卡方检验的一种特殊情况。
+
+    给定k组样本，n1, n2 …… nk观测值，计算所有n1 +n2 + ……+nk观测值的中位数。
+    然后构造一个2xk列联表，其中第一行包含k个样本的中位数以上的观测值，第二行包含k个样本的中位数以下或等于中位数的观测值。
+    然后可以对该表应用独立性卡方检验。
+    '''
     if (len(set(y)) < 2):
-        raise Exception('The dataset must have at least 2 classes.')
+        print('The dataset must have at least 2 classes.')
+        return None, None, None
 
     ps = []
-    Gs = []
-    MED = []
-    TBL = []
+    Ts = []
+    MED = [] # grand median
+    TBL = [] # contingency table
+    IMG = ''
 
     for i in range(X.shape[1]):
         Xi = X[:, i]
@@ -936,17 +980,17 @@ def MedianTest(X, y, verbose=False, show=False):
         Xcis = np.array(Xcis)
 
         if len(set(y)) == 2:
-            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1])
+            T, p, med, tbl = scipy.stats.median_test(Xcis[0], Xcis[1], ties='ignore')
         elif len(set(y)) == 3:
-            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2])
+            T, p, med, tbl = scipy.stats.median_test(Xcis[0], Xcis[1], Xcis[2], ties='ignore')
         elif len(set(y)) == 4:
-            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3])
+            T, p, med, tbl = scipy.stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3], ties='ignore')
         elif len(set(y)) >= 5:
-            G, p, med, tbl = stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4])
+            T, p, med, tbl = scipy.stats.median_test(Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4], ties='ignore')
             print("WARN: only the first 5 classes will be analyzed.")
 
         ps.append(p)
-        Gs.append(G)
+        Ts.append(T)
         MED.append(med)
         TBL.append(tbl)
 
@@ -954,34 +998,52 @@ def MedianTest(X, y, verbose=False, show=False):
         a2 = TBL[0][:, 1]
 
     if len(X[0])==2 and len(set(y))==2:
-        x = ('class1', 'class2')
-        plt.figure()
-        plt.bar(x, a1, width=0.3)
-        plt.title(
-                'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y0)')
-        plt.figure()
-        plt.bar(x, a2, width=0.3)
-        plt.title(
-                'moer than the total median (left) and  less than the total median (right) in the first dimension of X in X(y1)')
+        
+        idx = 1
 
-        c1 = TBL[1][:, 0]
-        c2 = TBL[1][:, 1]
+        fig, axes = plt.subplots(1,2, figsize = (8,4))
+        
+        for ax, tbl, m, p, T in zip(axes, TBL, MED, ps, Ts):
 
-        x = ('class1', 'class2')
-        plt.figure()
-        plt.bar(x, c1, width=0.3)
-        plt.title(
-            'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y0)')
-        plt.figure()
-        plt.bar(x, c2, width=0.3)
-        plt.title(
-            'moer than the total median (left) and  less than the total median (right) in the second dimension of X in X(y1)')
-        plt.show()
-    print('The P values of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
-    print('The values of G statistics of X in dimensions 1 to {}:{}'.format(len(X[0]), Gs))
+            tick_labels = ["> grand \n median", "< grand \n median"]
+            
+            im = ax.imshow(tbl, cmap='Greys')
 
-    return Gs, ps
+            # # We want to show all ticks...
+            ax.set_xticks(np.arange(len(tick_labels)))
+            ax.set_yticks(np.arange(len(tick_labels)))
+            # ... and label them with the respective list entries
+            ax.set_xticklabels(tick_labels)
+            ax.set_yticklabels(tick_labels)
 
+            # Rotate the tick labels and set their alignment.
+            plt.setp(ax.get_xticklabels(), rotation=0, ha="center", va="top",
+                    rotation_mode="anchor")
+            plt.setp(ax.get_yticklabels(), rotation=0, ha="right",
+                    rotation_mode="anchor")
+
+            # Loop over data dimensions and create text annotations.
+            for i in range(len(tick_labels)):
+                for j in range(len(tick_labels)):
+                    text = ax.text(j, i, tbl[i, j],
+                                ha="center", va="center", color="gray")
+
+            ax.set_title("Median contingency table (X" + str(idx) + ")\nCHI2 statistic = " + str(round(T,3)) + ", p = " + str(round(p,3)))
+            idx += 1
+        
+        fig.tight_layout()
+        IMG = plt2html(plt)
+    
+        if show:
+            plt.show()
+        else:
+            plt.close()
+            
+    if verbose:
+        print('The P value of X in dimensions 1 to {}:{}'.format(len(X[0]), ps))
+        print('The values of the contingency table chi2 statistic of X in dimensions 1 to {}:{}'.format(len(X[0]), Ts))
+
+    return Ts, ps, IMG
 
 def ANOVA(X,y, verbose = False, show = False, max_plot_num = 5):
     """
@@ -1503,11 +1565,12 @@ def get_metrics(X,y):
     if dic is None:
         dic = {}
  
+    ber = 1 # set maximum BER
     try:
-        ber, _ = BER(X,y)
-        dic['classification.BER'] = ber
+        ber, _ = BER(X,y)        
     except:
         print('Exception in GaussianNB.')
+    dic['classification.BER'] = ber
 
     svm_width, _ = SVM_Margin_Width(X, y)
     dic['classification.SVM.Margin'] = svm_width
@@ -1525,11 +1588,11 @@ def get_metrics(X,y):
     dic['test.ES.max'] = es.max()
 
     p, T, _ = T_IND(X,y)
-    dic['test.TI'] = p
-    dic['test.TI.min'] = np.min(p)
-    dic['test.TI.min.log10'] = np.log10 (np.min(p) )
-    dic['test.TI.T'] = T
-    dic['test.TI.T.max'] = np.max(T)
+    dic['test.student'] = p
+    dic['test.student.min'] = np.min(p)
+    dic['test.student.min.log10'] = np.log10 (np.min(p) )
+    dic['test.student.T'] = T
+    dic['test.student.T.max'] = np.max(T)
 
     p, F, _ = ANOVA(X,y)
     dic['test.ANOVA'] = p
@@ -1567,19 +1630,29 @@ def get_metrics(X,y):
     dic['test.CHISQ.CHI2'] = C
     dic['test.CHISQ.CHI2.max'] = np.max(C)
 
-    p, H, _ = KW(X,y)
+    H = [scipy.stats.chi2.ppf(.5, len(set(y))-1)]* X.shape[1] # H follows chi2, its critical value of chi2(k-1) at 0.5
+    p = [.5] * X.shape[1]
+    try:
+        p, H = KW(X,y)
+    except Exception as e:
+        print('KW Exception: ', e)
     dic['test.KW'] = p
     dic['test.KW.min'] = np.min(p)
     dic['test.KW.min.log10'] = np.log10 (np.min(p))
     dic['test.KW.H'] = H
     dic['test.KW.H.max'] = np.max(H)
 
-    p, T, _ = MedianTest(X,y)
+    T = [scipy.stats.chi2.ppf(.5, len(set(y))-1)]* X.shape[1] # T follows chi2, its critical value of chi2(k-1) at 0.5
+    p = [.5] * X.shape[1]
+    try:
+        p, T, _ = MedianTest(X,y)
+    except Exception as e:
+        print('MedianTest Exception: ', e)
     dic['test.Median'] = p
     dic['test.Median.min'] = np.min(p)
     dic['test.Median.min.log10'] = np.log10 (np.min(p))
-    dic['test.Median.T'] = T
-    dic['test.Median.T.max'] = np.max(T)
+    dic['test.Median.CH2'] = T
+    dic['test.Median.CH2.max'] = np.max(T)
 
     if ENABLE_R:
         try:
@@ -1645,6 +1718,11 @@ def get_html(X,y):
     tr = '<tr><td><pre>' + corr_log + '</pre></td><tr>'
     html += tr
 
+    t_p, _, t_img = T_IND(X,y)
+    
+    tr = '<tr><td> Independent t-test p' + str(t_p) + '<br/>' + t_img + '</td><tr>'
+    html += tr     
+    
     anova_p, _, anova_img = ANOVA(X,y)
     
     tr = '<tr><td> ANOVA p' + str(anova_p) + '<br/>' + anova_img + '</td><tr>'
@@ -1671,9 +1749,18 @@ def get_html(X,y):
     chi2s_p,_, chi2s_img = CHISQ(X,y)
     
     tr = '<tr><td> CHISQ p = ' + str(chi2s_p) + '<br/>' + chi2s_img + '</td><tr>'
+    html += tr   
+
+    m_p,_, m_img = MedianTest(X,y)
+    
+    tr = '<tr><td> Median test p = ' + str(m_p) + '<br/>' + m_img + '</td><tr>'
+    html += tr 
+
+    kw_p,_ = KW(X,y)
+    
+    tr = '<tr><td> Kruskal-Wallis test p = ' + str(kw_p) + '</td><tr>'
     html += tr    
-    
-    
+        
     es, es_img = cohen_d(X,y)
 
     tr = '<tr><td> ES = ' + str(es) + '<br/>' + es_img + '</td><tr>'
@@ -1834,8 +1921,9 @@ def visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = 0.25):
     plt.show()
     
     plt.figure(figsize = (20, 7))
-    plt.bar(names[1:], np.square(dfM.corr().values[0,1:]), 
-    facecolor="none", edgecolor = "black", 
+    corrs = np.square(dfM.corr().values[0,1:])
+    corrs = np.nan_to_num(corrs)
+    plt.bar(names[1:], corrs, facecolor="none", edgecolor = "black", 
     width = 0.8, label = 'R2 effect size') # ,width = 0.6, hatch='x'
     plt.plot(names[1:], [threshold] * len(names[1:]), '--', 
     label = 'R2 threshold = ' + str(threshold))
@@ -1845,7 +1933,7 @@ def visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = 0.25):
     plt.show()
 
     # print(np.where( np.abs(dfM.corr().values[0,1:])>0.9 ))
-    print('Metrics above the threshold (' + str(threshold) + '): ', np.array(names[1:]) [np.where( np.square(dfM.corr().values[0,1:])>threshold )])
+    print('Metrics above the threshold (' + str(threshold) + '): ', np.array(names[1:]) [np.where( corrs > threshold )])
 
 def extract_PC(dic):
 
