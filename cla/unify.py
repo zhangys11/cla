@@ -22,7 +22,7 @@ import pickle
 import joblib
 from datetime import datetime
 
-def analyze(X,y,use_filter=True):
+def analyze(X,y,use_filter=True,method='meta'):
     '''
     An include-all function that trains a meta-learner model of unified single metric.
     And use that metric to evaluate the between-class and in-class classifiability.  
@@ -30,6 +30,9 @@ def analyze(X,y,use_filter=True):
     Parameter
     ---------
     use_filter : whether to use R2 to filter highly correlated atom metrics
+    method : which method to use. 
+        'meta' - use linear regression as a meta-learner 
+        'decompose' - decomposition, e.g., PCA
 
     Return
     ------
@@ -45,8 +48,14 @@ def analyze(X,y,use_filter=True):
     joblib.dump(dic, pkl_file) # later we can reload with: dic = joblib.load('x.pkl')
     
     _, keys, _, M = filter_metrics(dic, threshold = (0.5 if use_filter else None))
-    model = train_metalearner(M, dic['d'])
-    umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys)
+    
+    if method == 'decompose':
+        # M PCA decompose， PC1, PC2, PC3, % > PC1
+        # umetric_bw, umetric_in = ...
+        pass
+    else: # 'meta'
+        model = train_metalearner(M, dic['d'])
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys)
 
     return umetric_bw, umetric_in, pkl_file
 
