@@ -271,7 +271,7 @@ def calculate_unified_metric(X, y, model, keys):
     '''
     return AnalyzeBetweenClass(X ,y, model, keys), AnalyzeInClass(X, y, model, keys, repeat = 10)
 
-def AnalyzeBetweenClass(X, y, model, keys):
+def AnalyzeBetweenClass(X, y, model, keys, method='meta'):
 
     X_pca = PCA(n_components = 2).fit_transform(X)
     plotComponents2D(X_pca, y)
@@ -287,7 +287,7 @@ def AnalyzeBetweenClass(X, y, model, keys):
     print("between-class unified metric = ", umetric[1])
     return umetric[1]
 
-def AnalyzeInClass(X, y, model, keys, repeat = 3):
+def AnalyzeInClass(X, y, model, keys, repeat = 3, method='meta'):
 
     umetrics = []
 
@@ -303,7 +303,13 @@ def AnalyzeInClass(X, y, model, keys, repeat = 3):
                 vec_metrics.append(new_dic[key])
 
             vec_metrics = np.nan_to_num(vec_metrics)
-            d += model.predict_proba([vec_metrics.T])[0][1]           
+            
+            if method == 'meta' and isinstance(model, LogisticRegression):
+                d += model.predict_proba([vec_metrics.T])[0][1]           
+            elif method == 'decompose' and isinstance(model, PCA):
+                pass
+            else:
+                raise Exception('Unsupported method, must be meta or decompose')
 
         print("c = ", int(c), ", in-class unified metric = ", d/repeat)
         X_pca = PCA(n_components = 2).fit_transform(Xc)
