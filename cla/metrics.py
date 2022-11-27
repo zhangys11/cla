@@ -1925,15 +1925,18 @@ def visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = 0.25):
     corrs = np.nan_to_num(corrs)
     plt.bar(names[1:], corrs, facecolor="none", edgecolor = "black", 
     width = 0.8, label = 'R2 effect size') # ,width = 0.6, hatch='x'
-    plt.plot(names[1:], [threshold] * len(names[1:]), '--', 
-    label = 'R2 threshold = ' + str(threshold))
+    if threshold is not None:
+        plt.plot(names[1:], [threshold] * len(names[1:]), '--', 
+        label = 'R2 threshold = ' + str(threshold))
     plt.title('R2 effect size of the correlation with between-class distance')
     plt.xticks(rotation = 90)
     plt.legend(loc = 'lower right')
     plt.show()
 
-    # print(np.where( np.abs(dfM.corr().values[0,1:])>0.9 ))
-    print('Metrics above the threshold (' + str(threshold) + '): ', np.array(names[1:]) [np.where( corrs > threshold )])
+    if threshold is not None:
+        # print(np.where( np.abs(dfM.corr().values[0,1:])>0.9 ))
+        print('Metrics above the threshold (' + str(threshold) + '): ', 
+            np.array(names[1:]) [np.where( corrs > threshold )])
 
 def extract_PC(dic):
 

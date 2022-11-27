@@ -10,6 +10,7 @@ from .vis.feature_importance import *
 from .vis.unsupervised_dimension_reductions import *
 from .metrics import get_metrics, visualize_dict, visualize_corr_matrix, generate_html_for_dict
 
+import os
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -23,7 +24,7 @@ import joblib
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 
-def analyze(X,y,use_filter=True,method='meta'):
+def analyze(X,y,use_filter=True,method='meta',pkl=None):
     '''
     An include-all function that trains a meta-learner model of unified single metric.
     And use that metric to evaluate the between-class and in-class classifiability.
@@ -34,6 +35,7 @@ def analyze(X,y,use_filter=True,method='meta'):
     method : which method to use.
         'meta' - use linear regression as a meta-learner
         'decompose' - decomposition, e.g., PCA
+    pkl : a pickle file of pre-computed atom metrics to load.
 
     Return
     ------
@@ -41,45 +43,51 @@ def analyze(X,y,use_filter=True,method='meta'):
     umetric_in : in-class unified metric
     pkl_file : pickle filepath for persisting the atom metric dict
     '''
-    dic = calculate_atom_metrics(mu = X.mean(axis = 0), s = X.std(axis = 0),
-                             mds = np.linspace(0, 6, 7+6*2),
-                             repeat = 5, nobs = 100,
-                             show_curve = True, show_html = True)
-    pkl_file = str(datetime.now()).replace(':','').replace('-','').replace(' ','') + '.pkl'
-    joblib.dump(dic, pkl_file) # later we can reload with: dic = joblib.load('x.pkl')
+
+    if pkl and os.path.isfile(pkl):
+        dic = joblib.load(pkl) # load an existing pkl file
+        pkl_file = pkl
+        print('Load atom metrics from', pkl_file)
+    else:
+        dic = calculate_atom_metrics(mu = X.mean(axis = 0), s = X.std(axis = 0),
+                            mds = np.linspace(0, 6, 7+6*2),
+                            repeat = 5, nobs = 100,
+                            show_curve = True, show_html = True)
+        pkl_file = str(datetime.now()).replace(':','').replace('-','').replace(' ','') + '.pkl'
+        joblib.dump(dic, pkl_file) # later we can reload with: dic = joblib.load('x.pkl')
+        print('Save atom metrics to', pkl_file)
 
     _, keys, _, M = filter_metrics(dic, threshold = (0.5 if use_filter else None))
     if method == 'decompose':
-        model, x_min, x_max = train_decomposer(M)
-        umetric_in = []
-        umetric_bw, umetric_in_ = calculate_unified_metric(X, y, model, keys, method)
-        if umetric_bw > x_max:
-            umetric_bw = x_max
-        elif umetric_bw < x_min:
-            umetric_bw = x_min
-        if umetric_in_[0] > x_max:
-            umetric_in_[0] = x_max
-        elif umetric_in_[0] < x_min:
-            umetric_in_[0] = x_min
-        if umetric_in_[1] > x_max:
-            umetric_in_[1] = 0.9 * x_max
-        elif umetric_in_[1] < x_min:
-            umetric_in_[1] = x_min
-        umetric_bw = abs((umetric_bw-x_max)/(x_min-x_max))
-        for i in umetric_in_:
-            z = (i-x_max)/(x_min-x_max)
-            z = abs(z)
-            umetric_in.append(z)
+        model, x_min, x_max = train_decomposer(M, dic['d'])
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+        
+        # maps to the [0,1] range
+        print('before scaling: ', umetric_bw, umetric_in)
+        print('PC1 range: ', x_min, x_max)
+
+        '''
+        np.interp(x, xp, fp, left=None, right=None)
+
+        left : optional float or complex corresponding to fp
+            Value to return for `x < xp[0]`, default is `fp[0]`.
+
+        right : optional float or complex corresponding to fp
+            Value to return for `x > xp[-1]`, default is `fp[-1]`.
+        
+        Because the default left and right params, we dont need to do extra out-of-range (>max or <min) treatments.
+        '''
+        umetric_bw = np.interp(umetric_bw,[x_min,x_max],[0,1])
+        umetric_in = np.interp(umetric_in,[x_min,x_max],[0,1])
+        print('after scaling: ', umetric_bw, umetric_in)
 
     elif method == 'meta':
         model = train_metalearner(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
-
     else:
-        raise Exception('Unsupported method, must be meta or decompose')
+        raise Exception('Unsupported method ' + method + ', must be meta or decompose')
 
     return umetric_bw, umetric_in, pkl_file
-    # return M,keys
 
 def mvgx(
     mu, # mean, row vector
@@ -237,7 +245,10 @@ def filter_metrics(dic, threshold = 0.25, display = True):
     if display:
         if threshold is not None:
             print('before filter')
-        visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = threshold)
+        try:
+            visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = threshold)
+        except Exception as e:
+            print('Exception in visualize_corr_matrix()', e)
 
     for k, x in dic.items():
         if k == 'd':
@@ -256,7 +267,16 @@ def filter_metrics(dic, threshold = 0.25, display = True):
 
     return dic_r2, keys, filtered_dic, np.array(M).T
 
-def train_decomposer(M):
+def train_decomposer(M, d):
+    '''
+    Train a PCA decomposer using the atom metric matrix.
+
+    Return
+    ------
+    decomposer : the decomposition model. default is PCA 
+    PC1_min, PC1_max : the reference range of first PC.
+    '''
+
     umetric_in = []
     dic2 = pd.DataFrame(M)
     dic2.fillna(0, inplace=True)
@@ -264,20 +284,17 @@ def train_decomposer(M):
     dic2.replace(-np.inf, -1, inplace=True)
     # dic2 = MinMaxScaler().fit_transform(dic2)
 
-    pca = PCA(n_components=3)
-    pca_model = pca.fit(dic2)
-    data1 = pca_model.transform(dic2)
-    x_min = min(data1.T[0])
-    x_max = max(data1.T[0])
-    # print(x_min, x_max)
+    decomposer = PCA(n_components=3)
+    X_pca = decomposer.fit_transform(dic2)
+    PC1_min = min(X_pca.T[0])
+    PC1_max = max(X_pca.T[0])
 
-    a = pca.explained_variance_ratio_
-    PC1 = a[0]
-    PC2 = a[1]
-    PC3 = a[2]
+    plt.scatter(d, X_pca.T[0])
+    plt.title('PC1 ~ d')
+    plt.show()
 
-    print('The information interpretation rate of the first principal component is:', PC1)
-    return pca_model,x_min,x_max
+    print('Explained Variance Ratios for the first three PCs', decomposer.explained_variance_ratio_[:3])
+    return decomposer, PC1_min, PC1_max
 
 
 def train_metalearner(M, d, cutoff = 2):
@@ -294,8 +311,8 @@ def train_metalearner(M, d, cutoff = 2):
     Note
     ----
     In the original publication, we use a linear regressor as the meta-learner.
-    In thee new version, we use logistic regression, to cover the between-class distance range (0-6std).
-    For d = 6std means almost no overlap, the meta-learner will return 1
+    In the new version, we use logistic regression, to cover the between-class distance range (0-6std).
+    For d = 6 std means almost no overlap, the meta-learner will return 1
     '''
 
     d = np.array(d) >= cutoff # np.median(d)
@@ -332,18 +349,22 @@ def AnalyzeBetweenClass(X, y, model, keys, method='decompose'):
     if method == 'meta' and isinstance(model, LogisticRegression):
         umetric = model.predict_proba([vec_metrics.T])[0][1]
     elif method == 'decompose' and isinstance(model, PCA):
-        x=vec_metrics.reshape(1,-1)
-        # x = MinMaxScaler().fit_transform(x)
-        umetric = model.transform(x)[0][0]
+        M = vec_metrics.reshape(1,-1)
+        umetric = model.transform(M)[0][0]
     else:
-        raise Exception('Unsupported method, must be meta or decompose')
+        raise Exception('Unsupported method ' + method + ', must be meta or decompose')
     # print("between-class unified metric = ", umetric[1])
     return umetric
 
-def AnalyzeInClass(X, y, model, keys, method='decompose'):
-
+def AnalyzeInClass(X, y, model, keys, method='decompose', repeat = 3):
+    '''
+    Parameters
+    ----------
+    repeat : to get in-class metrics, samples of each class are randomly assigned different labels. 
+        This controls how many times to run to get the averaged result.
+    '''
+    
     umetrics = []
-    repeat=10
     for c in set(y):
         Xc = X[y == c]
         d = 0
@@ -360,10 +381,10 @@ def AnalyzeInClass(X, y, model, keys, method='decompose'):
             if method == 'meta' and isinstance(model, LogisticRegression):
                 d += model.predict_proba([vec_metrics.T])[0][1]
             elif method == 'decompose' and isinstance(model, PCA):
-                x=vec_metrics.reshape(1,-1)
-                d += model.transform(x)[0][0]
+                M = vec_metrics.reshape(1,-1)
+                d += model.transform(M)[0][0]
             else:
-                raise Exception('Unsupported method, must be meta or decompose')
+                raise Exception('Unsupported method ' + method + ', must be meta or decompose')
 
         print("c = ", int(c), ", in-class unified metric = ", d/repeat)
         X_pca = PCA(n_components = 2).fit_transform(Xc)
