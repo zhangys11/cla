@@ -1651,8 +1651,8 @@ def get_metrics(X,y):
     dic['test.Median'] = p
     dic['test.Median.min'] = np.min(p)
     dic['test.Median.min.log10'] = np.log10 (np.min(p))
-    dic['test.Median.CH2'] = T
-    dic['test.Median.CH2.max'] = np.max(T)
+    dic['test.Median.CHI2'] = T
+    dic['test.Median.CHI2.max'] = np.max(T)
 
     if ENABLE_R:
         try:
