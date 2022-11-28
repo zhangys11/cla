@@ -33,8 +33,10 @@ def analyze(X,y,use_filter=True,method='meta',pkl=None):
     ---------
     use_filter : whether to use R2 to filter highly correlated atom metrics
     method : which method to use.
-        'meta' - use linear regression as a meta-learner
-        'decompose' - decomposition, e.g., PCA
+        'meta.linear' - use linear regression as a meta-learner
+        'meta.logistic' - use logistic regression as a meta-learner
+        'decompose.pca' - decomposition using PCA
+        'decompose.lda' - decomposition using LDA
     pkl : a pickle file of pre-computed atom metrics to load.
 
     Return
@@ -59,7 +61,7 @@ def analyze(X,y,use_filter=True,method='meta',pkl=None):
 
     _, keys, _, M = filter_metrics(dic, threshold = (0.5 if use_filter else None))
     if method == 'decompose':
-        model, x_min, x_max = train_decomposer(M, dic['d'])
+        model, x_min, x_max, slope = train_decomposer(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
         
         # maps to the [0,1] range
@@ -77,8 +79,8 @@ def analyze(X,y,use_filter=True,method='meta',pkl=None):
         
         Because the default left and right params, we dont need to do extra out-of-range (>max or <min) treatments.
         '''
-        umetric_bw = np.interp(umetric_bw,[x_min,x_max],[0,1])
-        umetric_in = np.interp(umetric_in,[x_min,x_max],[0,1])
+        umetric_bw = np.interp(umetric_bw,[x_min,x_max],[0,1] if slope else [1,0])
+        umetric_in = np.interp(umetric_in,[x_min,x_max],[0,1] if slope else [1,0])
         print('after scaling: ', umetric_bw, umetric_in)
 
     elif method == 'meta':
@@ -267,7 +269,10 @@ def filter_metrics(dic, threshold = 0.25, display = True):
 
     return dic_r2, keys, filtered_dic, np.array(M).T
 
-def train_decomposer(M, d):
+def train_decomposer_lda(M, d):
+    pass
+
+def train_decomposer_pca(M, d):
     '''
     Train a PCA decomposer using the atom metric matrix.
 
@@ -275,6 +280,7 @@ def train_decomposer(M, d):
     ------
     decomposer : the decomposition model. default is PCA 
     PC1_min, PC1_max : the reference range of first PC.
+    slope : Boolean. whether the PC1 is positively or negatively related to between-class distance.
     '''
 
     umetric_in = []
@@ -292,12 +298,17 @@ def train_decomposer(M, d):
     plt.scatter(d, X_pca.T[0])
     plt.title('PC1 ~ d')
     plt.show()
+    
+    slope = X_pca.T[0][:-1] > X_pca.T[0][0] # 1 # /-1
 
     print('Explained Variance Ratios for the first three PCs', decomposer.explained_variance_ratio_[:3])
-    return decomposer, PC1_min, PC1_max
+    return decomposer, PC1_min, PC1_max, slope
 
 
-def train_metalearner(M, d, cutoff = 2):
+def train_metalearner_linear(M, d):
+    pass
+
+def train_metalearner_logistic(M, d, cutoff = 2):
     '''
     Train meta-learner using the atom metric matrix and the distance array.
 
