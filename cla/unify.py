@@ -25,7 +25,7 @@ import joblib
 from datetime import datetime
 from sklearn.preprocessing import StandardScaler
 
-def analyze(X,y,use_filter=True,method=None,pkl=None):
+def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
     '''
     An include-all function that trains a meta-learner model of unified single metric.
     And use that metric to evaluate the between-class and in-class classifiability.
@@ -95,15 +95,15 @@ def analyze(X,y,use_filter=True,method=None,pkl=None):
         print('before scaling: ', umetric_bw, umetric_in)
         print('PC1 range: ', x_min, x_max)
 
-        umetric_bw = np.interp(umetric_bw, [x_min, x_max], [0, 1])
-        umetric_in = np.interp(umetric_in, [x_min, x_max], [0, 1])
+        umetric_bw = np.interp(umetric_bw, [x_min, x_max], [0, 1] if slope else [1,0])
+        umetric_in = np.interp(umetric_in, [x_min, x_max], [0, 1] if slope else [1,0])
         print('after scaling: ', umetric_bw, umetric_in)
     elif method == 'meta.linear':
         model = train_metalearner_linear(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
 
     else:
-        raise Exception('Unsupported method ' + method + ', must be meta or decompose')
+        raise Exception('Unsupported method ' + method )
 
     return umetric_bw, umetric_in, pkl_file
 
@@ -300,7 +300,7 @@ def train_decomposer_lda(M, d, cutoff=2):
     plt.title('C1 ~ d')
     plt.show()
 
-    slope = X_LDA.T[0][:-1] > X_LDA.T[0][0]  # 1 # /-1
+    slope = X_LDA.T[0][-1] > X_LDA.T[0][0]  # 1 # /-1
 
     print('Explained Variance Ratios for the first three PCs', lda.explained_variance_ratio_[:3])
     return lda, PC1_min, PC1_max, slope
@@ -333,7 +333,7 @@ def train_decomposer_pca(M, d):
     plt.title('PC1 ~ d')
     plt.show()
 
-    slope = X_pca.T[0][:-1] > X_pca.T[0][0] # 1 # /-1
+    slope = X_pca.T[0][-1] > X_pca.T[0][0] # 1 # /-1
 
     print('Explained Variance Ratios for the first three PCs', decomposer.explained_variance_ratio_[:3])
     return decomposer, PC1_min, PC1_max, slope
@@ -412,7 +412,7 @@ def AnalyzeBetweenClass(X, y, model, keys, method):
         # M=(M-mean)/std
         umetric = model.predict(M)
     else:
-        raise Exception('Unsupported method ' + method + ', must be meta or decompose')
+        raise Exception('Unsupported method ' + method )
     # print("between-class unified metric = ", umetric[1])
     return umetric
 
@@ -450,7 +450,7 @@ def AnalyzeInClass(X, y, model, keys, method, repeat = 3):
                 M = vec_metrics.reshape(1, -1)
                 d += model.predict(M)
             else:
-                raise Exception('Unsupported method ' + method + ', must be meta or decompose')
+                raise Exception('Unsupported method ' + method )
 
         print("c = ", int(c), ", in-class unified metric = ", d/repeat)
         X_pca = PCA(n_components = 2).fit_transform(Xc)
