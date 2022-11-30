@@ -87,17 +87,19 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
     elif method == 'meta.logistic':
         model = train_metalearner_logistic(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+    
     elif method == 'decompose.lda':
         model, x_min, x_max, slope = train_decomposer_lda(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
 
         # maps to the [0,1] range
         print('before scaling: ', umetric_bw, umetric_in)
-        print('PC1 range: ', x_min, x_max)
+        print('C1 range: ', x_min, x_max)
 
         umetric_bw = np.interp(umetric_bw, [x_min, x_max], [0, 1] if slope else [1,0])
         umetric_in = np.interp(umetric_in, [x_min, x_max], [0, 1] if slope else [1,0])
         print('after scaling: ', umetric_bw, umetric_in)
+
     elif method == 'meta.linear':
         model = train_metalearner_linear(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
@@ -285,25 +287,27 @@ def filter_metrics(dic, threshold = 0.25, display = True):
 
     return dic_r2, keys, filtered_dic, np.array(M).T
 
-def train_decomposer_lda(M, d, cutoff=2):
+def train_decomposer_lda(M, d, cutoff=3):
     d = np.array(d) >= cutoff
-    dic2 = pd.DataFrame(M)
-    dic2.fillna(0, inplace=True)
-    dic2.replace(np.inf, 1, inplace=True)
-    dic2.replace(-np.inf, -1, inplace=True)
-    lda = LDA(n_components=1).fit(M,d)
-    X_LDA = lda.fit_transform(M, d)
-    PC1_min = min(X_LDA.T[0])
-    PC1_max = max(X_LDA.T[0])
+    df = pd.DataFrame(M)
 
-    plt.scatter(d, X_LDA.T[0])
+    df.fillna(0, inplace=True)
+    df.replace(np.inf, 1, inplace=True)
+    df.replace(-np.inf, -1, inplace=True)
+
+    lda = LDA(n_components=1)
+    X_lda = lda.fit_transform(df, d)
+    C1_min = min(X_lda.T[0])
+    C1_max = max(X_lda.T[0])
+
+    plt.scatter(d, X_lda.T[0])
     plt.title('C1 ~ d')
     plt.show()
 
-    slope = X_LDA.T[0][-1] > X_LDA.T[0][0]  # 1 # /-1
+    slope = X_lda.T[0][-1] > X_lda.T[0][0]  # 1 # /-1
 
-    print('Explained Variance Ratios for the first three PCs', lda.explained_variance_ratio_[:3])
-    return lda, PC1_min, PC1_max, slope
+    print('Explained Variance Ratios for the first component', lda.explained_variance_ratio_[0])
+    return lda, C1_min, C1_max, slope
 
 def train_decomposer_pca(M, d):
     '''
@@ -317,15 +321,15 @@ def train_decomposer_pca(M, d):
     '''
 
     umetric_in = []
-    dic2 = pd.DataFrame(M)
+    df = pd.DataFrame(M)
 
-    dic2.fillna(0, inplace=True)
-    dic2.replace(np.inf, 1, inplace=True)
-    dic2.replace(-np.inf, -1, inplace=True)
-    # dic2 = MinMaxScaler().fit_transform(dic2)
+    df.fillna(0, inplace=True)
+    df.replace(np.inf, 1, inplace=True)
+    df.replace(-np.inf, -1, inplace=True)
+    # df = MinMaxScaler().fit_transform(df)
 
     decomposer = PCA(n_components=3)
-    X_pca = decomposer.fit_transform(dic2)
+    X_pca = decomposer.fit_transform(df)
     PC1_min = min(X_pca.T[0])
     PC1_max = max(X_pca.T[0])
 
@@ -399,12 +403,12 @@ def AnalyzeBetweenClass(X, y, model, keys, method):
         vec_metrics.append(new_dic[key])
 
     vec_metrics = np.nan_to_num(vec_metrics)
-    if method == 'meta.logisiticregression' and isinstance(model, LogisticRegression):
+    if method == 'meta.logistic' and isinstance(model, LogisticRegression):
         umetric = model.predict_proba([vec_metrics.T])[0][1]
     elif method == 'decompose.pca' and isinstance(model, PCA):
         M = vec_metrics.reshape(1,-1)
         umetric = model.transform(M)[0][0]
-    elif method == 'decompose.lda': #and isinstance(model, LDA):
+    elif method == 'decompose.lda' and isinstance(model, LDA):
         M = vec_metrics.reshape(1,-1)
         umetric = model.transform(M)[0][0]
     elif method == 'meta.linear' and isinstance(model, LinearRegression):
@@ -438,12 +442,12 @@ def AnalyzeInClass(X, y, model, keys, method, repeat = 3):
 
             vec_metrics = np.nan_to_num(vec_metrics)
 
-            if method == 'meta.logisiticregression' and isinstance(model, LogisticRegression):
+            if method == 'meta.logistic' and isinstance(model, LogisticRegression):
                 d += model.predict_proba([vec_metrics.T])[0][1]
             elif method == 'decompose.pca' and isinstance(model, PCA):
                 M = vec_metrics.reshape(1,-1)
                 d += model.transform(M)[0][0]
-            elif method == 'decompose.lda':# and isinstance(model, LDA):
+            elif method == 'decompose.lda' and isinstance(model, LDA):
                 M = vec_metrics.reshape(1,-1)
                 d += model.transform(M)[0][0]
             elif method == 'meta.linear' and isinstance(model, LinearRegression):
