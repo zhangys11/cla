@@ -19,12 +19,13 @@ import numpy as np
 import pandas as pd
 import scipy
 from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 import pickle
 import joblib
 from datetime import datetime
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 
-def analyze(X,y,use_filter=True,method='meta',pkl=None):
+def analyze(X,y,use_filter=True,method=None,pkl=None):
     '''
     An include-all function that trains a meta-learner model of unified single metric.
     And use that metric to evaluate the between-class and in-class classifiability.
@@ -60,10 +61,10 @@ def analyze(X,y,use_filter=True,method='meta',pkl=None):
         print('Save atom metrics to', pkl_file)
 
     _, keys, _, M = filter_metrics(dic, threshold = (0.5 if use_filter else None))
-    if method == 'decompose':
-        model, x_min, x_max, slope = train_decomposer(M, dic['d'])
+    if method == 'decompose.pca':
+        model, x_min, x_max, slope = train_decomposer_pca(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
-        
+
         # maps to the [0,1] range
         print('before scaling: ', umetric_bw, umetric_in)
         print('PC1 range: ', x_min, x_max)
@@ -83,9 +84,24 @@ def analyze(X,y,use_filter=True,method='meta',pkl=None):
         umetric_in = np.interp(umetric_in,[x_min,x_max],[0,1] if slope else [1,0])
         print('after scaling: ', umetric_bw, umetric_in)
 
-    elif method == 'meta':
-        model = train_metalearner(M, dic['d'])
+    elif method == 'meta.logistic':
+        model = train_metalearner_logistic(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+    elif method == 'decompose.lda':
+        model, x_min, x_max, slope = train_decomposer_lda(M, dic['d'])
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+
+        # maps to the [0,1] range
+        print('before scaling: ', umetric_bw, umetric_in)
+        print('PC1 range: ', x_min, x_max)
+
+        umetric_bw = np.interp(umetric_bw, [x_min, x_max], [0, 1])
+        umetric_in = np.interp(umetric_in, [x_min, x_max], [0, 1])
+        print('after scaling: ', umetric_bw, umetric_in)
+    elif method == 'meta.linear':
+        model = train_metalearner_linear(M, dic['d'])
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+
     else:
         raise Exception('Unsupported method ' + method + ', must be meta or decompose')
 
@@ -269,8 +285,25 @@ def filter_metrics(dic, threshold = 0.25, display = True):
 
     return dic_r2, keys, filtered_dic, np.array(M).T
 
-def train_decomposer_lda(M, d):
-    pass
+def train_decomposer_lda(M, d, cutoff=2):
+    d = np.array(d) >= cutoff
+    dic2 = pd.DataFrame(M)
+    dic2.fillna(0, inplace=True)
+    dic2.replace(np.inf, 1, inplace=True)
+    dic2.replace(-np.inf, -1, inplace=True)
+    lda = LDA(n_components=1).fit(M,d)
+    X_LDA = lda.fit_transform(M, d)
+    PC1_min = min(X_LDA.T[0])
+    PC1_max = max(X_LDA.T[0])
+
+    plt.scatter(d, X_LDA.T[0])
+    plt.title('C1 ~ d')
+    plt.show()
+
+    slope = X_LDA.T[0][:-1] > X_LDA.T[0][0]  # 1 # /-1
+
+    print('Explained Variance Ratios for the first three PCs', lda.explained_variance_ratio_[:3])
+    return lda, PC1_min, PC1_max, slope
 
 def train_decomposer_pca(M, d):
     '''
@@ -278,13 +311,14 @@ def train_decomposer_pca(M, d):
 
     Return
     ------
-    decomposer : the decomposition model. default is PCA 
+    decomposer : the decomposition model. default is PCA
     PC1_min, PC1_max : the reference range of first PC.
     slope : Boolean. whether the PC1 is positively or negatively related to between-class distance.
     '''
 
     umetric_in = []
     dic2 = pd.DataFrame(M)
+
     dic2.fillna(0, inplace=True)
     dic2.replace(np.inf, 1, inplace=True)
     dic2.replace(-np.inf, -1, inplace=True)
@@ -298,7 +332,7 @@ def train_decomposer_pca(M, d):
     plt.scatter(d, X_pca.T[0])
     plt.title('PC1 ~ d')
     plt.show()
-    
+
     slope = X_pca.T[0][:-1] > X_pca.T[0][0] # 1 # /-1
 
     print('Explained Variance Ratios for the first three PCs', decomposer.explained_variance_ratio_[:3])
@@ -306,7 +340,15 @@ def train_decomposer_pca(M, d):
 
 
 def train_metalearner_linear(M, d):
-    pass
+    d = np.array(d) # np.median(d)
+    dic2 = pd.DataFrame(M)
+    dic2.fillna(0, inplace=True)
+    dic2.replace(np.inf, 1, inplace=True)
+    dic2.replace(-np.inf, -1, inplace=True)
+    lr = LinearRegression().fit(dic2, d)
+    # print('Score: ', lr.score(M, d))
+    print('Coef and Intercept: ', lr.coef_, lr.intercept_)
+    return lr
 
 def train_metalearner_logistic(M, d, cutoff = 2):
     '''
@@ -345,7 +387,7 @@ def calculate_unified_metric(X, y, model, keys,method):
     '''
     return AnalyzeBetweenClass(X ,y, model, keys,method), AnalyzeInClass(X, y, model, keys,method)
 
-def AnalyzeBetweenClass(X, y, model, keys, method='decompose'):
+def AnalyzeBetweenClass(X, y, model, keys, method):
 
     X_pca = PCA(n_components = 2).fit_transform(X)
     plotComponents2D(X_pca, y)
@@ -357,24 +399,31 @@ def AnalyzeBetweenClass(X, y, model, keys, method='decompose'):
         vec_metrics.append(new_dic[key])
 
     vec_metrics = np.nan_to_num(vec_metrics)
-    if method == 'meta' and isinstance(model, LogisticRegression):
+    if method == 'meta.logisiticregression' and isinstance(model, LogisticRegression):
         umetric = model.predict_proba([vec_metrics.T])[0][1]
-    elif method == 'decompose' and isinstance(model, PCA):
+    elif method == 'decompose.pca' and isinstance(model, PCA):
         M = vec_metrics.reshape(1,-1)
         umetric = model.transform(M)[0][0]
+    elif method == 'decompose.lda': #and isinstance(model, LDA):
+        M = vec_metrics.reshape(1,-1)
+        umetric = model.transform(M)[0][0]
+    elif method == 'meta.linear' and isinstance(model, LinearRegression):
+        M = vec_metrics.reshape(1,-1)
+        # M=(M-mean)/std
+        umetric = model.predict(M)
     else:
         raise Exception('Unsupported method ' + method + ', must be meta or decompose')
     # print("between-class unified metric = ", umetric[1])
     return umetric
 
-def AnalyzeInClass(X, y, model, keys, method='decompose', repeat = 3):
+def AnalyzeInClass(X, y, model, keys, method, repeat = 3):
     '''
     Parameters
     ----------
-    repeat : to get in-class metrics, samples of each class are randomly assigned different labels. 
+    repeat : to get in-class metrics, samples of each class are randomly assigned different labels.
         This controls how many times to run to get the averaged result.
     '''
-    
+
     umetrics = []
     for c in set(y):
         Xc = X[y == c]
@@ -389,11 +438,17 @@ def AnalyzeInClass(X, y, model, keys, method='decompose', repeat = 3):
 
             vec_metrics = np.nan_to_num(vec_metrics)
 
-            if method == 'meta' and isinstance(model, LogisticRegression):
+            if method == 'meta.logisiticregression' and isinstance(model, LogisticRegression):
                 d += model.predict_proba([vec_metrics.T])[0][1]
-            elif method == 'decompose' and isinstance(model, PCA):
+            elif method == 'decompose.pca' and isinstance(model, PCA):
                 M = vec_metrics.reshape(1,-1)
                 d += model.transform(M)[0][0]
+            elif method == 'decompose.lda':# and isinstance(model, LDA):
+                M = vec_metrics.reshape(1,-1)
+                d += model.transform(M)[0][0]
+            elif method == 'meta.linear' and isinstance(model, LinearRegression):
+                M = vec_metrics.reshape(1, -1)
+                d += model.predict(M)
             else:
                 raise Exception('Unsupported method ' + method + ', must be meta or decompose')
 
