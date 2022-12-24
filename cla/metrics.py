@@ -550,10 +550,11 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     for yv in set(y):
         grp_samples.append((y == yv).sum())   
         
-    # min(grp_samples) is the minimum sample size among all categories. CV requires to be not greater than this value.
+    # min(grp_samples) is the minimum sample size among all categories. 
+    # CV requires to be not greater than this value.
 
     try:
-        clf = LogisticRegressionCV(cv = min(10, min(grp_samples)), max_iter = 1000).fit(X, y) # ridge(L2) regularization
+        clf = LogisticRegressionCV(cv = min(3, min(grp_samples)), max_iter = 1000).fit(X, y) # ridge(L2) regularization
     except:
         print('Exception in LogisticRegressionCV().')
         return None,None,None
@@ -617,7 +618,7 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
             
     y_pred = clf.predict(X)
     clf_metrics.append( globals()["accuracy_score"](y, y_pred) )
-    clf_metrics.append( globals()["cohen_kappa_score"](y, y_pred) ) # use ground truth and prediction as 1st and 2nd raters
+    clf_metrics.append( globals()["cohen_kappa_score"](y, y_pred) ) # use ground truth and prediction as 1st and 2nd raters. 0 - no agreement, 1 - perfect agreement.
     clf_metrics.append( globals()["f1_score"](y, y_pred) )
     clf_metrics.append( globals()["jaccard_score"](y, y_pred) )
     clf_metrics.append( globals()["precision_score"](y, y_pred) )
@@ -649,7 +650,7 @@ def CLF(X, y, verbose = False, show = False, save_fig = ''):
     clf_metrics.append( mkld )
     
     clf_metrics.append( globals()["average_precision_score"](y, y_prob) )
-    clf_metrics.append( globals()["brier_score_loss"](y, y_prob) )
+    clf_metrics.append( globals()["brier_score_loss"](y, y_prob) ) # The Brier score measures the mean squared difference between the predicted probability and the actual outcome.
     clf_metrics.append( globals()["roc_auc_score"](y, y_prob) )
     
     precisions, recalls, _ = precision_recall_curve(y, y_prob, pos_label = max(y)) # set pos_label for cases when y is not {0,1} or {-1,1}
@@ -1243,6 +1244,10 @@ def MWW(X,y, verbose = False, show = False, max_plot_num = 5):
 
     return ps, Us, IMG
 
+def es_max(X,y):
+    d, _ = cohen_d(X,y)
+    return d.max()
+
 def cohen_d(X, y, show = False, save_fig = ''):
     '''
     Cohen’s d is a type of effect size between two means. Cohen’s d values are also known as the standardised mean difference (SMD).
@@ -1352,6 +1357,7 @@ def correlate(X,y, verbose = False, show = False):
     dic['correlation.r2'] = np.power(rs,2) # R2, the R-squared effect size
     dic['correlation.r.p'] = prs
     dic['correlation.r.max'] = np.abs(rs).max() # abs max
+    dic['correlation.r2.max'] = np.power(rs,2).max() # abs max
     dic['correlation.r.p.min'] = np.min(prs)
     
     dic['correlation.rho'] = rhos
@@ -1684,98 +1690,78 @@ metric_polarity_dict={
     'classification.ACC': np.nanargmax,
     'classification.Kappa': np.nanargmax,
     'classification.F1_Score': np.nanargmax ,
-    'classification.Jaccard': np.nanargmin,
+    'classification.Jaccard': np.nanargmin, # IOU between pred and truch
     'classification.Precision': np.nanargmax,
     'classification.Recall': np.nanargmax,
-    'classification.McNemar': np.nanargmin,
+    'classification.McNemar': np.nanargmax, # we want see no diff between pred and truth
     'classification.McNemar.CHI2':np.nanargmax,
-    'classification.CochranQ': np.nanargmin,
-    'classification.CochranQ.T':np.nanargmax,
+    'classification.CochranQ': np.nanargmax, # we want see no diff between pred and truth
+    'classification.CochranQ.T':np.nanargmin, 
     'classification.CrossEntropy':np.nanargmin,
     'classification.Mean_KLD': np.nanargmin,
     'classification.AP': np.nanargmax,
     'classification.Brier':np.nanargmin ,
     'classification.ROC_AUC':np.nanargmax,
-    'classification.PR_AUC':np.nanargmin,
+    'classification.PR_AUC':np.nanargmax,
     'classification.BER':np.nanargmin,
     'classification.SVM.Margin':np.nanargmax,
-    'correlation.IG':np.nanargmax,
     'correlation.IG.max':np.nanargmax,
-    'correlation.r':np.nanargmax,
-    'correlation.r2':np.nanargmax,
     'correlation.r.p':np.nanargmin,
     'correlation.r.max':np.nanargmax,
+    'correlation.r2.max':np.nanargmax,
     'correlation.r.p.min':np.nanargmin,
-    'correlation.rho':np.nanargmax,
-    'correlation.rho.p':np.nanargmin,
     'correlation.rho.max':np.nanargmax,
     'correlation.rho.p.min':np.nanargmin,
-    'correlation.tau':np.nanargmin,
-    'correlation.tau.p':np.nanargmin,
     'correlation.tau.max':np.nanargmax,
     'correlation.tau.p.min':np.nanargmin,
-    'test.ES':np.nanargmax,
     'test.ES.max':np.nanargmax,
     'test.student':np.nanargmin,
     'test.student.min':np.nanargmin,
     'test.student.min.log10':np.nanargmin,
-    'test.student.T':np.nanargmax,
-    'test.student.T.max':np.nanargmin,
-    'test.ANOVA':np.nanargmin,
+    'test.student.T.max':np.nanargmax,
     'test.ANOVA.min':np.nanargmin,
     'test.ANOVA.min.log10':np.nanargmin,
-    'test.ANOVA.F':np.nanargmax,
     'test.ANOVA.F.max':np.nanargmax,
     'test.MANOVA':np.nanargmin,
     'test.MANOVA.log10':np.nanargmin,
     'test.MANOVA.F':np.nanargmax,
-    'test.MWW':np.nanargmin,
     'test.MWW.min':np.nanargmin,
     'test.MWW.min.log10':np.nanargmin,
-    'test.MWW.U':np.nanargmin,
     'test.MWW.U.min':np.nanargmin,
-    'test.KS':np.nanargmin,
     'test.KS.min':np.nanargmin,
     'test.KS.min.log10':np.nanargmin,
-    'test.KS.D':np.nanargmax,
     'test.KS.D.max':np.nanargmax,
-    'test.CHISQ':np.nanargmin,
     'test.CHISQ.min':np.nanargmin,
     'test.CHISQ.min.log10':np.nanargmin,
-    'test.CHISQ.CHI2':np.nanargmax,
     'test.CHISQ.CHI2.max':np.nanargmax,
-    'test.KW':np.nanargmin,
     'test.KW.min':np.nanargmin,
     'test.KW.min.log10':np.nanargmin,
-    'test.KW.H':np.nanargmax,
     'test.KW.H.max':np.nanargmax,
-    'test.Median':np.nanargmin,
     'test.Median.min':np.nanargmin,
     'test.Median.min.log10':np.nanargmin,
-    'test.Median.CHI2':np.nanargmax,
     'test.Median.CHI2.max':np.nanargmax,
     'overlapping.F1.mean':np.nanargmax,
     'overlapping.F1.sd':np.nanargmax,
     'overlapping.F1v.mean':np.nanargmax,
-    'overlapping.F1v.sd':np.nanargmin,
+    # 'overlapping.F1v.sd':np.nanargmin,
     'overlapping.F2.mean':np.nanargmin,
-    'overlapping.F2.sd':np.nanargmin,
+    # 'overlapping.F2.sd':np.nanargmin,
     'overlapping.F3.mean':np.nanargmax,
-    'overlapping.F3.sd':np.nanargmin,
+    # 'overlapping.F3.sd':np.nanargmin,
     'overlapping.F4.mean':np.nanargmax,
-    'overlapping.F4.sd':np.nanargmin,
+    # 'overlapping.F4.sd':np.nanargmin,
     'neighborhood.N1':np.nanargmin,
     'neighborhood.N2.mean':np.nanargmin,
-    'neighborhood.N2.sd':np.nanargmin,
+    # 'neighborhood.N2.sd':np.nanargmin,
     'neighborhood.N3.mean':np.nanargmin,
-    'neighborhood.N3.sd':np.nanargmax,
+    # 'neighborhood.N3.sd':np.nanargmax,
     'neighborhood.N4.mean':np.nanargmin,
-    'neighborhood.N4.sd':np.nanargmin,
+    # 'neighborhood.N4.sd':np.nanargmin,
     'neighborhood.T1.mean':np.nanargmax,
-    'neighborhood.T1.sd':np.nanargmin,
+    # 'neighborhood.T1.sd':np.nanargmin,
     'neighborhood.LSC':np.nanargmax,
     'linearity.L1.mean':np.nanargmin,
-    'linearity.L1.sd':np.nanargmin
+    # 'linearity.L1.sd':np.nanargmin
  }
 
 def get_json(X,y):    
