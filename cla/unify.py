@@ -3,27 +3,22 @@ Extend the idea in the paper:
 A unified classifiability analysis framework based on meta-learner and its application in spectroscopic profiling data [J]. Applied Intelligence, 2021, doi: 10.1007/s10489-021-02810-8
 '''
 
-from .vis.plt2base64 import *
-from .vis.plotComponents2D import *
-from .vis.plotComponents1D import *
-from .vis.feature_importance import *
-from .vis.unsupervised_dimension_reductions import *
-from .metrics import get_metrics, visualize_dict, visualize_corr_matrix, generate_html_for_dict
-
 import os
+from datetime import datetime
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
-from IPython.core.display import display, HTML
+import IPython.core.display.display
+import IPython.core.display.HTML
 import numpy as np
 import pandas as pd
 import scipy
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
-import pickle
+from sklearn.decomposition import PCA
 import joblib
-from datetime import datetime
-from sklearn.preprocessing import StandardScaler
+
+from .vis.plotComponents2D import plotComponents2D
+from .metrics import get_metrics, visualize_dict, visualize_corr_matrix, generate_html_for_dict
 
 def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
     '''
@@ -133,7 +128,6 @@ def mvgx(
     s = np.array(s)
 
     N = nobs
-    dims = len(mu)
     cov = np.diag(s**2)
 
     mu1 = mu - s * md / 2
@@ -227,7 +221,7 @@ show_curve = True, show_html = True):
     if show_html:
         print('generate_html_for_dict()')
         s = generate_html_for_dict(dic)
-        display(HTML(s))
+        IPython.core.display.display(IPython.core.display.HTML(s))
 
     return dic
 
@@ -320,7 +314,6 @@ def train_decomposer_pca(M, d):
     slope : Boolean. whether the PC1 is positively or negatively related to between-class distance.
     '''
 
-    umetric_in = []
     df = pd.DataFrame(M)
 
     df.fillna(0, inplace=True)

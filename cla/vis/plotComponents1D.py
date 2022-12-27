@@ -11,7 +11,7 @@ def plotComponents1D(X, y, labels, use_markers=False, ax=None, legends = None):
     markers = ['o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H']
 
     if (ax is None):
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         
     i=0
     for label in labels:
