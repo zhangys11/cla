@@ -705,7 +705,7 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     return dic, IMG, LOG
 
 
-def SVM_Margin_Width(X, y, scale=False, show=False, save_fig=''):
+def SVM_Margin_Width(X, y, scale=True, show=False):
     '''
     SVM hyperplane margin width
 

@@ -7,8 +7,7 @@ import os
 from datetime import datetime
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import IPython.core.display.display
-import IPython.core.display.HTML
+import IPython.core.display
 import numpy as np
 import pandas as pd
 import scipy

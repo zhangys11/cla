@@ -1,13 +1,12 @@
 # from distutils.core import setup
-from setuptools import find_packages, setup
-import pathlib
+from setuptools import setup
 
 setup(
     # Application name:
     name="cla",
     
     # Version number (initial):
-    version="1.1.0",
+    version="1.1.1",
     
     # Application author details:
     author="Zhang",
