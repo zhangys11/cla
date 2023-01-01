@@ -155,17 +155,23 @@ def mvgx(
     return X, y
 
 
-def save_file(X, y, fn):
+def save_file(X, y, pathname):
+    '''
+    Save data to a csv file    
+    '''
 
     # fn = str(uuid.uuid1()) + '.csv'
     M = np.hstack((X, y.reshape(-1, 1)))
-    np.savetxt(fn, M, delimiter=',', fmt='%.3f,' *
+    np.savetxt(pathname, M, delimiter=',', fmt='%.3f,' *
                X.shape[1] + '%i', header='X1,X2,...,Y')  # fmt='%f'
-    return fn
+    return pathname
 
 
-def load_file(fn):
-    M = np.loadtxt(fn, delimiter=',', skiprows=1)
+def load_file(pathname):
+    '''
+    Load data from a csv file    
+    '''
+    M = np.loadtxt(pathname, delimiter=',', skiprows=1)
     X = M[:, :-1]
     y = M[:, -1].astype(int)
     return X, y
@@ -174,7 +180,10 @@ def load_file(fn):
 # plot contour of multivariate Gaussian distributions
 
 
-def plot_gaussian_contour(X, y, mu1, s1, mu2, s2, alpha=0.4, ax=None):
+def plot_gaussian_contour(X, y, mu1, s1, mu2, s2, alpha=0.4):
+    '''
+    Plot contour of multivariate Gaussian distributions   
+    '''
 
     plt.figure()  # figsize = (9, 6)
 
@@ -345,7 +354,7 @@ CLF_METRICS = ['classification.ACC',
                # The following requires a model that outputs probability
                'classification.CrossEntropy',  # cross-entropy loss / log loss
                'classification.Mean_KLD',
-               'classification.AP',
+               # 'classification.AP',
                'classification.Brier',
                'classification.ROC_AUC',
                'classification.PR_AUC']
@@ -443,10 +452,16 @@ def plot_contours(ax, clf, xx, yy, **params):
 
 
 def plot_svm_boundary(X, y, clf, Xn=None):
+    '''
+    Xn : new data samples to be tested. Will be shown in strong color.
+    '''
     return plot_clf_boundary(X, y, clf, Xn=None, clf_type='svm')
 
 
 def plot_lr_boundary(X, y, clf, Xn=None):
+    '''
+    Xn : new data samples to be tested. Will be shown in strong color.    
+    '''
     return plot_clf_boundary(X, y, clf, Xn=None, clf_type='lr')
 
 
@@ -684,7 +699,7 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     mkld, _ = Mean_KLD(y_ohe, y_prob_ohe)
     clf_metrics.append(mkld)
 
-    clf_metrics.append(globals()["average_precision_score"](y, y_prob))
+    # clf_metrics.append(globals()["average_precision_score"](y, y_prob)) # According to the sklearn doc, this should equal to the P-R curve AUC. However, the actual result diifers. Implementation may have problems.
     # The Brier score measures the mean squared difference between the predicted probability and the actual outcome.
     clf_metrics.append(globals()["brier_score_loss"](y, y_prob))
     clf_metrics.append(globals()["roc_auc_score"](y, y_prob))
@@ -1778,7 +1793,7 @@ metric_polarity_dict = {
     'classification.ACC': np.nanargmax,
     'classification.Kappa': np.nanargmax,
     'classification.F1_Score': np.nanargmax,
-    'classification.Jaccard': np.nanargmin,  # IOU between pred and truch
+    'classification.Jaccard': np.nanargmax,  # IOU between pred and truch
     'classification.Precision': np.nanargmax,
     'classification.Recall': np.nanargmax,
     # we want see no diff between pred and truth
@@ -1789,7 +1804,6 @@ metric_polarity_dict = {
     'classification.CochranQ.T': np.nanargmin,
     'classification.CrossEntropy': np.nanargmin,
     'classification.Mean_KLD': np.nanargmin,
-    'classification.AP': np.nanargmax,
     'classification.Brier': np.nanargmin,
     'classification.ROC_AUC': np.nanargmax,
     'classification.PR_AUC': np.nanargmax,
