@@ -927,7 +927,7 @@ def KW(X, y, verbose=False):
             Xc = Xi[y == c]
             Xcis.append(Xc)
 
-        Xcis = np.array(Xcis)
+        # Xcis = np.array(Xcis)
 
         if len(set(y)) == 2:
             H, p = scipy.stats.kruskal(Xcis[0], Xcis[1], nan_policy='omit')
@@ -1046,7 +1046,7 @@ def MedianTest(X, y, verbose=False, show=False):
             Xc = Xi[y == c]
             Xcis.append(Xc)
 
-        Xcis = np.array(Xcis)
+        # Xcis = np.array(Xcis)
 
         if len(set(y)) == 2:
             T, p, med, tbl = scipy.stats.median_test(
@@ -1283,7 +1283,7 @@ def MWW(X, y, verbose=False, show=False, max_plot_num=5):
             Xc = Xi[y == c]
             Xcis.append(Xc)
 
-        Xcis = np.array(Xcis)
+        # Xcis = np.array(Xcis)
 
         # Special case for ValueError: All numbers are identical in mannwhitneyu
         # Don't use np.allclose(Xcis[0], Xcis[1]) as the lengths may differ
@@ -1300,7 +1300,7 @@ def MWW(X, y, verbose=False, show=False, max_plot_num=5):
 
         if cnt < max_plot_num:
             plt.figure()
-            plt.hist(Xcis.T, bins=min(12, int(len(y)/3)), alpha=0.4, edgecolor='black', label=["$ X_"+str(
+            plt.hist(Xcis, bins=min(12, int(len(y)/3)), alpha=0.4, edgecolor='black', label=["$ X_"+str(
                 i+1)+"^{( y_"+str(0)+")} $", "$ X_"+str(i+1)+"^{( y_"+str(1)+")} $"])  # plot ith feature of different classes
             test_result = "MWW test on X{}: U={},p={}".format(
                 i+1, U, round(p, 3))
@@ -1502,7 +1502,7 @@ def KS(X, y, show=False, max_plot_num=5):
             Xc = Xi[y == c]
             Xcis.append(Xc)
 
-        Xcis = np.array(Xcis)
+        # Xcis = np.array(Xcis)
 
         D, p = scipy.stats.ks_2samp(Xcis[0], Xcis[1])
 
@@ -1512,7 +1512,7 @@ def KS(X, y, show=False, max_plot_num=5):
         if cnt < max_plot_num:
 
             plt.figure()
-            plt.hist(Xcis.T, cumulative=True, histtype=u'step', bins=min(12, int(len(y)/3)), label=["$ CDF( X_"+str(
+            plt.hist(Xcis, cumulative=True, histtype=u'step', bins=min(12, int(len(y)/3)), label=["$ CDF( X_"+str(
                 i+1)+"^{(y_"+str(0)+")} ) $", "$ CDF( X_"+str(i+1)+"^{(y_"+str(1)+")} ) $"])  # plot ith feature of different classes
             test_result = "KS test on X{}: D={},p={}".format(
                 i+1, D, round(p, 3))
