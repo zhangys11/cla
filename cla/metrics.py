@@ -978,12 +978,13 @@ def T_IND(X, y, verbose=False, show=False, max_plot_num=5):
             Xcis.append(Xc)
             labels.append("$ X_" + str(i + 1) + "^{( y_" + str(c) + " )} $")
 
-        Xcis = np.array(Xcis)
+        # print(Xcis)
+        # Xcis = np.array(Xcis) # will raise error: 'The requested array has an inhomogeneous shape after 1 dimensions. The detected shape was (2,) + inhomogeneous part.'
 
-        bar = scipy.stats.bartlett(Xcis[0], Xcis[1])[1]
+        bart = scipy.stats.bartlett(Xcis[0], Xcis[1])[1]
         lev = scipy.stats.levene(Xcis[0], Xcis[1])[1]
 
-        if bar > 0.5 or lev > 0.5:
+        if bart > 0.5 or lev > 0.5:
             T, p = scipy.stats.ttest_ind(Xcis[0], Xcis[1])
         else:
             T, p = scipy.stats.ttest_ind(Xcis[0], Xcis[1], equal_var=False)
@@ -994,7 +995,7 @@ def T_IND(X, y, verbose=False, show=False, max_plot_num=5):
         if (cnt < max_plot_num):
             plt.figure()
             # plot ith feature of different classes
-            plt.boxplot(Xcis.T, notch=False, labels=labels)
+            plt.boxplot(Xcis, notch=False, labels=labels)
             test_result = "independent t test on X{}: T={},p={}".format(
                 i + 1, round(T, 3), round(p, 3))
             # plt.legend(labels)
@@ -1147,7 +1148,7 @@ def ANOVA(X, y, verbose=False, show=False, max_plot_num=5):
             Xcis.append(Xc)
             labels.append("$ X_"+str(i+1)+"^{( y_"+str(c)+" )} $")
 
-        Xcis = np.array(Xcis)
+        # Xcis = np.array(Xcis)
 
         # equal to ttest_ind() in case of 2 groups
         f, p = scipy.stats.f_oneway(Xcis[0], Xcis[1])
@@ -1185,7 +1186,7 @@ def ANOVA(X, y, verbose=False, show=False, max_plot_num=5):
 
             plt.figure()
             # plot ith feature of different classes
-            plt.boxplot(Xcis.T, notch=False, labels=labels)
+            plt.boxplot(Xcis, notch=False, labels=labels)
             test_result = "ANOVA on X{}: f={},p={}".format(i+1, f, round(p, 3))
             # plt.legend(labels)
             plt.title(test_result)
