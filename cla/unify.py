@@ -98,11 +98,6 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
         model = train_metalearner_linear(M, dic['d'])
         umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
 
-        print('before scaling: ', umetric_bw, umetric_in)
-        umetric_bw = np.interp(umetric_bw, [0, 6], [0, 1] if slope else [1, 0])
-        umetric_in = np.interp(umetric_in, [0, 6], [0, 1] if slope else [1, 0])
-        print('after scaling: ', umetric_bw, umetric_in)
-
     else:
         raise Exception('Unsupported method ' + method )
 
