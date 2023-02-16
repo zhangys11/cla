@@ -394,7 +394,7 @@ def AnalyzeBetweenClass(X, y, model, keys, method):
     for key in keys:
         vec_metrics.append(new_dic[key])
 
-    vec_metrics = np.nan_to_num(vec_metrics)
+    vec_metrics = np.nan_to_num(vec_metrics,nan=0,posinf=1000,neginf=-1000)
     if method == 'meta.logistic' and isinstance(model, LogisticRegression):
         umetric = model.predict_proba([vec_metrics.T])[0][1]
     elif method == 'decompose.pca' and isinstance(model, PCA):
@@ -432,7 +432,7 @@ def AnalyzeInClass(X, y, model, keys, method, repeat = 3):
             for key in keys:
                 vec_metrics.append(new_dic[key])
 
-            vec_metrics = np.nan_to_num(vec_metrics)
+            vec_metrics = np.nan_to_num(vec_metrics,nan=0,posinf=1000,neginf=-1000)
 
             if method == 'meta.logistic' and isinstance(model, LogisticRegression):
                 d += model.predict_proba([vec_metrics.T])[0][1]
