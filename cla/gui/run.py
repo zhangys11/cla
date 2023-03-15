@@ -13,13 +13,21 @@ The Flask quickstart docs explain this in the "Externally Visible Server" sectio
 from threading import Timer
 import webbrowser
 import os
+import sys
 import uuid
 from flask import Flask, render_template, request
-from .. import metrics
+from flaskwebgui import FlaskUI
+
+if __package__:
+    from .. import metrics
+else:
+    ROOT_DIR = os.path.dirname (os.path.dirname(__file__))
+    if ROOT_DIR not in sys.path:
+        sys.path.append(ROOT_DIR)
+    import metrics
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # limit to 5MB
-
 
 def generate(d, n):
 
@@ -96,6 +104,7 @@ def open_browser():
 
 
 if __name__ == '__main__':
-    # use netstat -ano|findstr 5005 to check port use
-    Timer(3, open_browser).start()
-    app.run(host="0.0.0.0", port=5005, debug=False)
+    # # use netstat -ano|findstr 5005 to check port use
+    # Timer(3, open_browser).start()
+    # app.run(host="0.0.0.0", port=5005, debug=False)
+    FlaskUI(app=app, server="flask", port=5005).run()

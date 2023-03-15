@@ -1,12 +1,20 @@
-﻿import numpy as np
+﻿import os
+import sys
+import numpy as np
 import matplotlib.pyplot as plt
-from .unsupervised_dimension_reductions import unsupervised_dimension_reductions
 
-# plot the importance for all features
-
+if __package__:
+    from .unsupervised_dimension_reductions import unsupervised_dimension_reductions
+else:
+    VIS_DIR = os.path.dirname(__file__)
+    if VIS_DIR not in sys.path:
+        sys.path.append(VIS_DIR)
+    from unsupervised_dimension_reductions import unsupervised_dimension_reductions
 
 def plot_feature_importance(feature_importances, title, row_size=100, figsize=(12, 2)):
-
+    '''
+    plot the importance for all features
+    '''
     feature_importances = np.array(feature_importances)
 
     # matrix chart

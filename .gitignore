@@ -4,3 +4,4 @@
 dist/
 *.egg-info/
 notebooks/.ipynb_checkpoints/
+cla/gui/*.csv

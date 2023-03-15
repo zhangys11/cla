@@ -39,7 +39,8 @@ setup(
         "matplotlib",
         "numpy",
         "seaborn",
-        "statsmodels"
+        "statsmodels",
+        "flaskwebgui",
     ],
 
     package_data={

@@ -1,3 +1,5 @@
+import os
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
@@ -5,9 +7,17 @@ from sklearn.decomposition import KernelPCA
 from sklearn.decomposition import TruncatedSVD
 from sklearn.manifold import MDS
 from sklearn.manifold import TSNE
-from .plotComponents2D import plotComponents2D
-from .plotComponents1D import plotComponents1D
 
+if __package__:
+    from .plotComponents2D import plotComponents2D
+    from .plotComponents1D import plotComponents1D
+else:
+    VIS_DIR = os.path.dirname(__file__)
+    if VIS_DIR not in sys.path:
+        sys.path.append(VIS_DIR)
+
+    from plotComponents2D import plotComponents2D
+    from plotComponents1D import plotComponents1D
 
 def unsupervised_dimension_reductions(X, y, labels=None):
 

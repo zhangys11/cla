@@ -27,10 +27,20 @@ from statsmodels.stats.contingency_tables import mcnemar, cochrans_q
 
 import rpy2
 
-from .vis.plt2base64 import plt2html
-from .vis.plotComponents2D import plotComponents2D
-from .vis.feature_importance import plot_feature_importance
-from .vis.unsupervised_dimension_reductions import unsupervised_dimension_reductions
+if __package__:
+    from .vis.plt2base64 import plt2html
+    from .vis.plotComponents2D import plotComponents2D
+    from .vis.feature_importance import plot_feature_importance
+    from .vis.unsupervised_dimension_reductions import unsupervised_dimension_reductions
+else:
+    VIS_DIR = os.path.dirname(__file__) + '/vis'
+    if VIS_DIR not in sys.path:
+        sys.path.append(VIS_DIR)
+
+    from plt2base64 import plt2html
+    from plotComponents2D import plotComponents2D
+    from feature_importance import plot_feature_importance
+    from unsupervised_dimension_reductions import unsupervised_dimension_reductions
 
 ENABLE_R = True
 if sys.platform == "win32" and rpy2.__version__ >= '3.0.0':
