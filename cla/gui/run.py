@@ -10,8 +10,6 @@ The Flask quickstart docs explain this in the "Externally Visible Server" sectio
 '''
 
 
-from threading import Timer
-import webbrowser
 import os
 import sys
 import uuid
@@ -99,12 +97,8 @@ def run_cla():
     return {'message': 'success', 'html': r}
 
 
-def open_browser():
-    webbrowser.open_new('http://localhost:5005/')
-
-
 if __name__ == '__main__':
     # # use netstat -ano|findstr 5005 to check port use
-    # Timer(3, open_browser).start()
+    # Timer(3, open_browser).start() # from threading import Timer # import webbrowser
     # app.run(host="0.0.0.0", port=5005, debug=False)
     FlaskUI(app=app, server="flask", port=5005).run()
