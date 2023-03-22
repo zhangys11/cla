@@ -381,8 +381,9 @@ def grid_search_svm_hyperparams(X, y, test_size=0.2, tuned_parameters=[
     Returns the best model and ACCs on training / testing / all data set
     '''
 
+    y = np.array(y)
     X_train, X_test, y_train, y_test = train_test_split(
-        X, np.array(y), test_size=test_size)  # , random_state=0
+        X, y, test_size=test_size, stratify=y)  # , random_state=0
 
     log = ''
     # log += "X_train: " + str(X_train.shape) + ", y_train: " + str(y_train.shape)
