@@ -612,8 +612,8 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     try:
         clf = LogisticRegressionCV(cv=min(3, min(grp_samples)), max_iter=1000).fit(
             X, y)  # ridge(L2) regularization
-    except:
-        print('Exception in LogisticRegressionCV().')
+    except Exception as e:
+        print('Exception in LogisticRegressionCV().', e)
         return None, None, None
 
     LOG += "regularization strength\t" + str(clf.C_) + "\n\n"
@@ -817,8 +817,8 @@ def IG(X, y, show=False, save_fig=''):
 
     try:
         mi = mutual_info_classif(X, y, discrete_features=False)
-    except:
-        print('Exception in mutual_info_classif().')
+    except Exception as e:
+        print('Exception in mutual_info_classif().', e)
         return None, None
 
     mi_sorted = np.sort(mi)[::-1]  # sort in desceding order
@@ -1686,8 +1686,8 @@ def get_metrics(X, y):
     ber = 1  # set maximum BER
     try:
         ber, _ = BER(X, y)
-    except:
-        print('Exception in GaussianNB.')
+    except Exception as e:
+        print('Exception in GaussianNB.', e)
     dic['classification.BER'] = ber
 
     svm_width, _ = SVM_Margin_Width(X, y)
