@@ -25,7 +25,7 @@ else:
     import metrics
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024  # limit to 5MB
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # limit to 50MB to avoid 413 error
 
 def generate(d, n):
 
@@ -80,7 +80,7 @@ def run_cla():
         r = ''
         use_sample = request.form["use_sample"]
 
-        if (use_sample):
+        if (use_sample == 'true' or use_sample is True):
             # distance between means, respect to std, i.e. (mu2 - mu1) / std, or how many stds is the difference.
             d = request.form["d"]
             n = request.form["nobs"]  # number of observations / samples
@@ -91,7 +91,10 @@ def run_cla():
                 __file__)) + "/" + str(uuid.uuid4()) + ".csv"
             f.save(csv)
 
-        r = analyze(csv)
+        try:
+            r = analyze(csv)
+        except Exception as e:
+            r = str(e)
 
     # render_template("home.html", use_sample = use_sample, d = d, nobs = n, cla_result = r)
     return {'message': 'success', 'html': r}
