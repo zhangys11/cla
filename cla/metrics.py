@@ -488,7 +488,10 @@ def plot_clf_boundary(X, y, clf, Xn=None, clf_type='svm'):
         ['0.8', '0.1', 'red', 'blue', 'black', 'orange', 'green', 'cyan', 'purple', 'gray'])
 
     plt.figure()
-    plot_contours(plt, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.1)
+
+    if X.shape[1] == 2:
+        plot_contours(plt, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.1)
+    
     plt.scatter(X0, X1, c=y, s=70, facecolors=cmap,
                 edgecolors='gray', alpha=.4)  # cmap='gray'
     plt.xlim(xx.min(), xx.max())
@@ -522,8 +525,6 @@ def plot_clf_boundary(X, y, clf, Xn=None, clf_type='svm'):
 
     plt.legend()
     plt.show()
-    print("SVC({})".format(clf.get_params()))
-
 
 def classify_with_svm(X, y):
     """Train SVM classifiers
@@ -557,7 +558,9 @@ def classify_with_svm(X, y):
     xx, yy = make_meshgrid(X0, X1)
 
     for clf, title, ax in zip(models, titles, sub.flatten()):
-        plot_contours(ax, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.1)
+
+        if X.shape[1] == 2:
+            plot_contours(ax, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.1)
         ax.scatter(X0, X1, c=y, cmap=plt.cm.coolwarm, s=20, edgecolors='k')
         ax.set_xlim(xx.min(), xx.max())
         ax.set_ylim(yy.min(), yy.max())
