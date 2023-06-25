@@ -537,8 +537,8 @@ def classify_with_svm(X, y):
     # we create an instance of SVM and fit out data. We do not scale our
     # data since we want to plot the support vectors
     C = 1.0  # SVM regularization parameter
-    models = (SVC(kernel='linear', C=C),
-              LinearSVC(C=C),
+    models = (SVC(kernel='linear', C=C), #  # SVC defaulty uses the one-vs-one scheme to support multiclass.
+              LinearSVC(C=C, multi_class='crammer_singer'), # crammer_singer optimizes a joint objective over all classes
               SVC(kernel='rbf', gamma=0.7, C=C),
               SVC(kernel='poly', degree=3, C=C))
     models = (clf.fit(X, y) for clf in models)
