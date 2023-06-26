@@ -681,10 +681,10 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     clf_metrics.append(globals()["accuracy_score"](y, y_pred))
     # use ground truth and prediction as 1st and 2nd raters. 0 - no agreement, 1 - perfect agreement.
     clf_metrics.append(globals()["cohen_kappa_score"](y, y_pred))
-    clf_metrics.append(globals()["f1_score"](y, y_pred))
-    clf_metrics.append(globals()["jaccard_score"](y, y_pred))
-    clf_metrics.append(globals()["precision_score"](y, y_pred))
-    clf_metrics.append(globals()["recall_score"](y, y_pred))
+    clf_metrics.append(globals()["f1_score"](y, y_pred, average = 'micro'))
+    clf_metrics.append(globals()["jaccard_score"](y, y_pred, average = 'micro'))
+    clf_metrics.append(globals()["precision_score"](y, y_pred, average = 'micro'))
+    clf_metrics.append(globals()["recall_score"](y, y_pred, average = 'micro'))
 
     res = mcnemar(confusion_matrix(y, y_pred), exact=False, correction=True)
     clf_metrics.append(res.pvalue)
@@ -701,7 +701,8 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     # clf = LogisticRegressionCV(cv=5, random_state=0).fit(X, y)
     y_prob_ohe = clf.predict_proba(X)
     # for binary classification, use the second proba as P(Y=1|X)
-    y_prob = y_prob_ohe[:, 1]
+    # y_prob = y_prob_ohe[:, 1]
+    y_prob = y_prob_ohe # for multi-class
 
     enc = OneHotEncoder(handle_unknown='ignore')
     y_ohe = enc.fit_transform(np.array(y).reshape(-1, 1)).toarray()
@@ -714,14 +715,19 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     clf_metrics.append(mkld)
 
     # clf_metrics.append(globals()["average_precision_score"](y, y_prob)) # According to the sklearn doc, this should equal to the P-R curve AUC. However, the actual result diifers. Implementation may have problems.
-    # The Brier score measures the mean squared difference between the predicted probability and the actual outcome.
-    clf_metrics.append(globals()["brier_score_loss"](y, y_prob))
-    clf_metrics.append(globals()["roc_auc_score"](y, y_prob))
-
-    # set pos_label for cases when y is not {0,1} or {-1,1}
-    precisions, recalls, _ = precision_recall_curve(
-        y, y_prob, pos_label=max(y))
-    clf_metrics.append(globals()["auc"](recalls, precisions))
+    # The Brier score measures the mean squared difference between the predicted probability and the actual outcome. 
+    # The Brier score only support binary classification.
+    if (len(np.unique(y)) == 2):
+        clf_metrics.append(globals()["brier_score_loss"](y, y_prob[:, 1]))
+        clf_metrics.append(globals()["roc_auc_score"](y, y_prob[:, 1]))# set pos_label for cases when y is not {0,1} or {-1,1}
+        precisions, recalls, _ = precision_recall_curve(y, y_prob, pos_label=max(y))
+        clf_metrics.append(globals()["auc"](recalls, precisions))
+    else:
+        print('Brier score is not applicable for multi-class classification. We use log loss instead.')
+        clf_metrics.append(globals()["log_loss"](y, y_prob, average = 'micro'))
+        clf_metrics.append(globals()["roc_auc_score"](y, y_prob, average = 'micro'))
+        print('P-R curve AUC is not applicable for multi-class classification. Set 0.5 by default.')
+        clf_metrics.append(0.5)
 
     rpt = ''
     for v in zip(CLF_METRICS, clf_metrics):
@@ -1281,7 +1287,8 @@ def MWW(X, y, verbose=False, show=False, max_plot_num=5):
     """
 
     if (len(set(y)) != 2):
-        raise Exception('The dataset must have 2 classes.')
+        print('The dataset must have 2 classes for MWW test.')
+        return None, None, None
 
     ps = []
     Us = []
@@ -1367,7 +1374,9 @@ def cohen_d(X, y, show=False, save_fig=''):
     labels = list(set(y))
 
     # only support binary classifiction. For multi-class classification, use one vs rest strategy
-    assert len(labels) == 2
+    if len(labels) != 2:
+        print("Cohen's d only support binary classifiction. Return 0 by default.")
+        return np.zeros(X.shape[1]), None
 
     Xc1 = X[y == labels[0]]
     Xc2 = X[y == labels[1]]
@@ -1500,9 +1509,9 @@ def KS(X, y, show=False, max_plot_num=5):
     """
 
     if (len(set(y)) != 2):
-        raise Exception(
-            'The dataset must have two classes. If you have more than 2 classes, use OVR (one-vs-rest) strategy.')
-
+        print('The dataset must have two classes for KS test.')
+        return None, None, None
+    
     ps = []
     Ds = []
     IMG = ''
@@ -1709,11 +1718,13 @@ def get_metrics(X, y):
     dic['test.ES.max'] = es.max()
 
     p, T, _ = T_IND(X, y)
-    dic['test.student'] = p
-    dic['test.student.min'] = np.min(p)
-    dic['test.student.min.log10'] = np.log10(np.min(p))
-    dic['test.student.T'] = T
-    dic['test.student.T.max'] = np.max(T)
+    if p is not None:
+        dic['test.student'] = p
+        dic['test.student.min'] = np.min(p)
+        dic['test.student.min.log10'] = np.log10(np.min(p))
+    if T is not None:
+        dic['test.student.T'] = T
+        dic['test.student.T.max'] = np.max(T)
 
     p, F, _ = ANOVA(X, y)
     dic['test.ANOVA'] = p
@@ -1731,18 +1742,22 @@ def get_metrics(X, y):
         dic['test.MANOVA.F'] = F
 
     p, U, _ = MWW(X, y)
-    dic['test.MWW'] = p
-    dic['test.MWW.min'] = np.min(p)
-    dic['test.MWW.min.log10'] = np.log10(np.min(p))
-    dic['test.MWW.U'] = U
-    dic['test.MWW.U.min'] = np.min(U)
+    if p is not None:
+        dic['test.MWW'] = p
+        dic['test.MWW.min'] = np.min(p)
+        dic['test.MWW.min.log10'] = np.log10(np.min(p))
+    if U is not None:
+        dic['test.MWW.U'] = U
+        dic['test.MWW.U.min'] = np.min(U)
 
     p, D, _ = KS(X, y)
-    dic['test.KS'] = p
-    dic['test.KS.min'] = np.min(p)
-    dic['test.KS.min.log10'] = np.log10(np.min(p))
-    dic['test.KS.D'] = D
-    dic['test.KS.D.max'] = np.max(D)
+    if p is not None:
+        dic['test.KS'] = p
+        dic['test.KS.min'] = np.min(p)
+        dic['test.KS.min.log10'] = np.log10(np.min(p))
+    if D is not None:
+        dic['test.KS.D'] = D
+        dic['test.KS.D.max'] = np.max(D)
 
     p, C, _ = CHISQ(X, y)
     dic['test.CHISQ'] = p
