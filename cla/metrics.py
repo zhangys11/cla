@@ -11,16 +11,22 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from tqdm import tqdm
+import IPython.display
 
 from sklearn.metrics import *  # we use global() to access the imported functions
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+from sklearn.naive_bayes import BernoulliNB, GaussianNB, MultinomialNB
+from sklearn.tree import DecisionTreeClassifier # ExtraTreeClassifier only works in ensembles
+from sklearn.neural_network import MLPClassifier
+from sklearn.neighbors import KNeighborsClassifier, NearestCentroid
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import LinearSVC, SVC
 # from scipy.integrate import quad
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.svm import SVC, LinearSVC
 from sklearn.feature_selection import mutual_info_classif, chi2
-from sklearn.naive_bayes import GaussianNB
-from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import OneHotEncoder
 from statsmodels.multivariate import manova
 from statsmodels.stats.contingency_tables import mcnemar, cochrans_q
@@ -32,6 +38,7 @@ if __package__:
     from .vis.plotComponents2D import plotComponents2D
     from .vis.feature_importance import plot_feature_importance
     from .vis.unsupervised_dimension_reductions import unsupervised_dimension_reductions
+    from .vis.confusion_matrix import plot_confusion_matrix
 else:
     VIS_DIR = os.path.dirname(__file__) + '/vis'
     if VIS_DIR not in sys.path:
@@ -41,6 +48,7 @@ else:
     from plotComponents2D import plotComponents2D
     from feature_importance import plot_feature_importance
     from unsupervised_dimension_reductions import unsupervised_dimension_reductions
+    from confusion_matrix import plot_confusion_matrix
 
 ENABLE_R = True
 if sys.platform == "win32" and rpy2.__version__ >= '3.0.0':
@@ -259,13 +267,16 @@ def BER(X, y, nobs=10000, NSigma=10, show=False, save_fig=''):
     NSgima - the sampling range
     """
 
-    nb = GaussianNB(priors=[0.5, 0.5])  # we have no strong prior assumption.
-    nb.fit(X, y)
-
     labels = list(set(y))
 
-    # For multi-class classification, use one vs rest strategy
-    assert len(labels) == 2
+    # only support binary classifiction. For multi-class classification, use one vs rest strategy
+    if len(labels) != 2:
+        print("GaussianNB only support binary classifiction. Return 0 by default.")
+        return np.zeros(X.shape[1]), None
+
+
+    nb = GaussianNB(priors=[0.5, 0.5])  # we have no strong prior assumption.
+    nb.fit(X, y)
 
     Xc1 = X[y == labels[0]]
     Xc2 = X[y == labels[1]]
@@ -368,6 +379,21 @@ CLF_METRICS = ['classification.ACC',
                'classification.Brier',
                'classification.ROC_AUC',
                'classification.PR_AUC']
+
+CLF_METRICS_MULTICLASS = ['classification.ACC',
+               'classification.Kappa',
+               'classification.F1_Score',
+               'classification.Jaccard',  # The Jaccard index, or Jaccard similarity coefficient, defined as the size of the intersection divided by the size of the union of two label sets
+               'classification.Precision',
+               'classification.Recall',
+               'classification.McNemar',
+               'classification.McNemar.CHI2',
+               'classification.CochranQ',
+               'classification.CochranQ.T',
+               # The following requires a model that outputs probability
+               'classification.CrossEntropy',
+               'classification.Mean_KLD'] 
+               
 
 ########## Section: SVM / LR ###########
 
@@ -605,6 +631,8 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     # clf = LogisticRegressionCV(cv=10, solver = 'saga', penalty = 'elasticnet', max_iter = 5000, l1_ratios = [0,0.2,0.4,0.6,0.8,1]).fit(X, y) # with Elasticnet regularization, but it is too time consuming. We don't require sparse solution, so ridge suffices.
     # LOG += "regularization strength\t" + str(clf.C_) + "\nL1 reg ratio" + str(clf.l1_ratio_) + "\n\n"
 
+    is_binary = len(set(y)) == 2
+
     grp_samples = []
     for yv in set(y):
         grp_samples.append((y == yv).sum())
@@ -613,8 +641,8 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     # CV requires to be not greater than this value.
 
     try:
-        clf = LogisticRegressionCV(cv=min(3, min(grp_samples)), max_iter=1000).fit(
-            X, y)  # ridge(L2) regularization
+        clf = LogisticRegressionCV(cv=min(3, min(grp_samples)), max_iter=1000, 
+                                   multi_class='multinomial').fit(X, y)  # ridge(L2) regularization
     except Exception as e:
         print('Exception in LogisticRegressionCV().', e)
         return None, None, None
@@ -717,22 +745,25 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
     # clf_metrics.append(globals()["average_precision_score"](y, y_prob)) # According to the sklearn doc, this should equal to the P-R curve AUC. However, the actual result diifers. Implementation may have problems.
     # The Brier score measures the mean squared difference between the predicted probability and the actual outcome. 
     # The Brier score only support binary classification.
-    if (len(np.unique(y)) == 2):
+    if is_binary:
         clf_metrics.append(globals()["brier_score_loss"](y, y_prob[:, 1]))
         clf_metrics.append(globals()["roc_auc_score"](y, y_prob[:, 1]))# set pos_label for cases when y is not {0,1} or {-1,1}
-        precisions, recalls, _ = precision_recall_curve(y, y_prob, pos_label=max(y))
+        precisions, recalls, _ = precision_recall_curve(y, y_prob[:, 1], pos_label=max(y))
         clf_metrics.append(globals()["auc"](recalls, precisions))
     else:
-        print('Brier score is not applicable for multi-class classification. We use log loss instead.')
-        clf_metrics.append(globals()["log_loss"](y, y_prob, average = 'micro'))
-        clf_metrics.append(globals()["roc_auc_score"](y, y_prob, average = 'micro'))
-        print('P-R curve AUC is not applicable for multi-class classification. Set 0.5 by default.')
+        if verbose:
+            print('Brier score is not applicable for multi-class classification. We use log loss instead.')
+        clf_metrics.append(globals()["log_loss"](y, y_prob))
+        if verbose:
+            print('ROC and P-R curve AUC is not applicable for multi-class classification. Set 0.5 by default.')
+        clf_metrics.append(0.5)
         clf_metrics.append(0.5)
 
     rpt = ''
     for v in zip(CLF_METRICS, clf_metrics):
-        rpt += v[0] + "\t" + str(v[1]) + "\n"
-        dic[v[0]] = v[1]
+        if is_binary or v[0] in CLF_METRICS_MULTICLASS:
+            rpt += v[0] + "\t" + str(v[1]) + "\n"
+            dic[v[0]] = v[1]
 
     LOG += "\n\n" + rpt
 
@@ -765,6 +796,7 @@ def SVM_Margin_Width(X, y, scale=True, show=False):
     IMG = ''
 
     if len(support_vectors[1]) == 2 and len(set(y)) == 2:
+
         df = pd.DataFrame(X)
 
         x_min = np.min(df.iloc[:, 0]) - 0.5
@@ -882,7 +914,9 @@ def CHISQ(X, y, show=False, save_fig=''):
     """
 
     if (len(set(y)) < 2):
-        raise Exception('The dataset must have at least two classes.')
+        if verbose:
+            print('The dataset must have at least two classes for chisq gof test.')
+        return None, None, None
 
     IMG = ''
 
@@ -933,7 +967,8 @@ def KW(X, y, verbose=False):
     '''
 
     if len(set(y)) < 2:
-        print('The dataset must have at least 2 classes.')
+        if verbose:
+            print('The dataset must have at least two classes for Kruskal-Wallis test.')
         return None, None
 
     ps = []
@@ -960,7 +995,8 @@ def KW(X, y, verbose=False):
         elif len(set(y)) >= 5:
             H, p = scipy.stats.kruskal(
                 Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4], nan_policy='omit')
-            print("WARN: only the first 5 classes will be analyzed.")
+            if verbose:
+                print("WARN: only the first 5 classes will be analyzed for KW-test.")
 
         ps.append(p)
         Hs.append(H)
@@ -980,7 +1016,8 @@ def T_IND(X, y, verbose=False, show=False, max_plot_num=5):
     '''
 
     if (len(set(y)) != 2):
-        print('The dataset must have 2 classes.')
+        if verbose:
+            print('The dataset must have two classes for t test.')
         return None, None, None
 
     ps = []
@@ -1049,7 +1086,8 @@ def MedianTest(X, y, verbose=False, show=False):
     然后可以对该表应用独立性卡方检验。
     '''
     if (len(set(y)) < 2):
-        print('The dataset must have at least 2 classes.')
+        if verbose:
+            print('The dataset must have at least two classes for median test.')
         return None, None, None
 
     ps = []
@@ -1080,7 +1118,8 @@ def MedianTest(X, y, verbose=False, show=False):
         elif len(set(y)) >= 5:
             T, p, med, tbl = scipy.stats.median_test(
                 Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4], ties='ignore')
-            print("WARN: only the first 5 classes will be analyzed.")
+            if verbose:
+                print("WARN: only the first 5 classes will be analyzed.")
 
         ps.append(p)
         Ts.append(T)
@@ -1150,7 +1189,9 @@ def ANOVA(X, y, verbose=False, show=False, max_plot_num=5):
     """
 
     if (len(set(y)) < 2):
-        raise Exception('The dataset must have at least two classes.')
+        if verbose:
+            print('The dataset must have at least two classes for ANOVA test.')
+        return None, None, None
 
     ps = []
     IMG = ''
@@ -1180,7 +1221,8 @@ def ANOVA(X, y, verbose=False, show=False, max_plot_num=5):
         elif (len(set(y)) >= 5):  # if there are five or more classes
             f, p = scipy.stats.f_oneway(
                 Xcis[0], Xcis[1], Xcis[2], Xcis[3], Xcis[4])
-            print('WARN: only the first 5 classes will be analyzed.')
+            if verbose:
+                print('WARN: only the first 5 classes will be analyzed for ANOVA.')
 
         """
         Alternative implementation using sm.stats.anova_lm
@@ -1240,7 +1282,7 @@ def MANOVA(X, y, verbose=False):
     """
 
     if (X.shape[1] <= 1):
-        txt = 'There must be more than one dependent variable to fit MANOVA! Use ANOVA to substitute MANOVA.'
+        txt = 'There must be more than one independent variable to fit MANOVA! Use ANOVA to substitute MANOVA.'
         anova_p, anova_F, _ = ANOVA(X, y)
         return anova_p, anova_F, txt
 
@@ -1281,13 +1323,14 @@ def MANOVA(X, y, verbose=False):
 
 def MWW(X, y, verbose=False, show=False, max_plot_num=5):
     """
-    Performa feature-wise MWW test. Returns an array of p-values on all the features and its minimum.
+    Performa feature-wise MWW test. Only support binary classificaiton. Returns an array of p-values on all the features and its minimum.
 
-    y - support 2 classes
+    y - only support 2 classes
     """
 
     if (len(set(y)) != 2):
-        print('The dataset must have 2 classes for MWW test.')
+        if verbose:
+            print('The dataset must have two classes for MWW test.')
         return None, None, None
 
     ps = []
@@ -1351,12 +1394,12 @@ def MWW(X, y, verbose=False, show=False, max_plot_num=5):
     return ps, Us, IMG
 
 
-def es_max(X, y):
-    d, _ = cohen_d(X, y)
+def es_max(X, y, verbose = True):
+    d, _ = cohen_d(X, y, verbose=verbose)
     return d.max()
 
 
-def cohen_d(X, y, show=False, save_fig=''):
+def cohen_d(X, y, show=False, save_fig='', verbose=True):
     '''
     Cohen’s d is a type of effect size between two means. Cohen’s d values are also known as the standardised mean difference (SMD).
     e.g., partial eta sqaured is the percentage of variance in the dependent variable (y) explained by the independent variable (x). 
@@ -1375,7 +1418,8 @@ def cohen_d(X, y, show=False, save_fig=''):
 
     # only support binary classifiction. For multi-class classification, use one vs rest strategy
     if len(labels) != 2:
-        print("Cohen's d only support binary classifiction. Return 0 by default.")
+        if verbose:
+            print("Cohen's d only support binary classifiction. Return 0 by default.")
         return np.zeros(X.shape[1]), None
 
     Xc1 = X[y == labels[0]]
@@ -1501,7 +1545,7 @@ def correlate(X, y, verbose=False, show=False):
     return dic, LOG
 
 
-def KS(X, y, show=False, max_plot_num=5):
+def KS(X, y, verbose = True, show=False, max_plot_num=5):
     """
     Performa feature-wise KS test.
 
@@ -1509,7 +1553,8 @@ def KS(X, y, show=False, max_plot_num=5):
     """
 
     if (len(set(y)) != 2):
-        print('The dataset must have two classes for KS test.')
+        if verbose:
+            print('The dataset must have two classes for KS test.')
         return None, None, None
     
     ps = []
@@ -1680,7 +1725,7 @@ def analyze_file(fn):
     return get_html(X, y)
 
 
-def get_metrics(X, y):
+def get_metrics(X, y, verbose = True):
     '''
     Addionally, we can do a PCA for high-dim data to get X beforehand.   
     We assume the covariance matrix is diagnal, i.e.   
@@ -1691,16 +1736,20 @@ def get_metrics(X, y):
     If we plot two PCs from PCA，the PCs will also be linearly uncorrelated, because they are the projections on two different orthogonal eigenvectors. 
     '''
 
-    dic, _, _ = CLF(X, y)
+    is_binary = len(np.unique(y)) == 2
+
+    dic, _, _ = CLF(X, y, verbose = verbose)
     if dic is None:
         dic = {}
 
-    ber = 1  # set maximum BER
-    try:
-        ber, _ = BER(X, y)
-    except Exception as e:
-        print('Exception in GaussianNB.', e)
-    dic['classification.BER'] = ber
+    if is_binary:
+
+        ber = 1  # set maximum BER
+        try:
+            ber, _ = BER(X, y)
+        except Exception as e:
+            print('Exception in GaussianNB.', e)
+        dic['classification.BER'] = ber
 
     svm_width, _ = SVM_Margin_Width(X, y)
     dic['classification.SVM.Margin'] = svm_width
@@ -1710,30 +1759,33 @@ def get_metrics(X, y):
         dic['correlation.IG'] = ig
         dic['correlation.IG.max'] = ig.max()
 
-    dic_cor, _ = correlate(X, y)
-    dic.update(dic_cor)
 
-    es, _ = cohen_d(X, y)
-    dic['test.ES'] = es
-    dic['test.ES.max'] = es.max()
+    if is_binary:
 
-    p, T, _ = T_IND(X, y)
-    if p is not None:
-        dic['test.student'] = p
-        dic['test.student.min'] = np.min(p)
-        dic['test.student.min.log10'] = np.log10(np.min(p))
-    if T is not None:
-        dic['test.student.T'] = T
-        dic['test.student.T.max'] = np.max(T)
+        dic_cor, _ = correlate(X, y, verbose = verbose)  # in case of multi-class, y is not a regression target but a class label. 
+        dic.update(dic_cor)
 
-    p, F, _ = ANOVA(X, y)
+        es, _ = cohen_d(X, y)
+        dic['test.ES'] = es
+        dic['test.ES.max'] = es.max()
+
+        p, T, _ = T_IND(X, y, verbose)
+        if p is not None:
+            dic['test.student'] = p
+            dic['test.student.min'] = np.min(p)
+            dic['test.student.min.log10'] = np.log10(np.min(p))
+        if T is not None:
+            dic['test.student.T'] = T
+            dic['test.student.T.max'] = np.max(T)
+
+    p, F, _ = ANOVA(X, y, verbose)
     dic['test.ANOVA'] = p
     dic['test.ANOVA.min'] = np.min(p)
     dic['test.ANOVA.min.log10'] = np.log10(np.min(p))
     dic['test.ANOVA.F'] = F
     dic['test.ANOVA.F.max'] = np.max(F)
 
-    p, F, log = MANOVA(X, y)
+    p, F, log = MANOVA(X, y, verbose)
     if log == 'Exception in MANOVA':
         pass
     else:
@@ -1741,23 +1793,25 @@ def get_metrics(X, y):
         dic['test.MANOVA.log10'] = np.log10(p)
         dic['test.MANOVA.F'] = F
 
-    p, U, _ = MWW(X, y)
-    if p is not None:
-        dic['test.MWW'] = p
-        dic['test.MWW.min'] = np.min(p)
-        dic['test.MWW.min.log10'] = np.log10(np.min(p))
-    if U is not None:
-        dic['test.MWW.U'] = U
-        dic['test.MWW.U.min'] = np.min(U)
+    if is_binary:
 
-    p, D, _ = KS(X, y)
-    if p is not None:
-        dic['test.KS'] = p
-        dic['test.KS.min'] = np.min(p)
-        dic['test.KS.min.log10'] = np.log10(np.min(p))
-    if D is not None:
-        dic['test.KS.D'] = D
-        dic['test.KS.D.max'] = np.max(D)
+        p, U, _ = MWW(X, y, verbose)
+        if p is not None:
+            dic['test.MWW'] = p
+            dic['test.MWW.min'] = np.min(p)
+            dic['test.MWW.min.log10'] = np.log10(np.min(p))
+        if U is not None:
+            dic['test.MWW.U'] = U
+            dic['test.MWW.U.min'] = np.min(U)
+
+        p, D, _ = KS(X, y)
+        if p is not None:
+            dic['test.KS'] = p
+            dic['test.KS.min'] = np.min(p)
+            dic['test.KS.min.log10'] = np.log10(np.min(p))
+        if D is not None:
+            dic['test.KS.D'] = D
+            dic['test.KS.D.max'] = np.max(D)
 
     p, C, _ = CHISQ(X, y)
     dic['test.CHISQ'] = p
@@ -1770,7 +1824,7 @@ def get_metrics(X, y):
     H = [scipy.stats.chi2.ppf(.5, len(set(y))-1)] * X.shape[1]
     p = [.5] * X.shape[1]
     try:
-        p, H = KW(X, y)
+        p, H = KW(X, y, verbose)
     except Exception as e:
         print('KW Exception: ', e)
     dic['test.KW'] = p
@@ -1779,18 +1833,20 @@ def get_metrics(X, y):
     dic['test.KW.H'] = H
     dic['test.KW.H.max'] = np.max(H)
 
-    # T follows chi2, its critical value of chi2(k-1) at 0.5
-    T = [scipy.stats.chi2.ppf(.5, len(set(y))-1)] * X.shape[1]
-    p = [.5] * X.shape[1]
-    try:
-        p, T, _ = MedianTest(X, y)
-    except Exception as e:
-        print('MedianTest Exception: ', e)
-    dic['test.Median'] = p
-    dic['test.Median.min'] = np.min(p)
-    dic['test.Median.min.log10'] = np.log10(np.min(p))
-    dic['test.Median.CHI2'] = T
-    dic['test.Median.CHI2.max'] = np.max(T)
+    if is_binary:
+
+        # T follows chi2, its critical value of chi2(k-1) at 0.5
+        T = [scipy.stats.chi2.ppf(.5, len(set(y))-1)] * X.shape[1]
+        p = [.5] * X.shape[1]
+        try:
+            p, T, _ = MedianTest(X, y, verbose)
+        except Exception as e:
+            print('MedianTest Exception: ', e)
+        dic['test.Median'] = p
+        dic['test.Median.min'] = np.min(p)
+        dic['test.Median.min.log10'] = np.log10(np.min(p))
+        dic['test.Median.CHI2'] = T
+        dic['test.Median.CHI2.max'] = np.max(T)
 
     if ENABLE_R:
         try:
@@ -1812,7 +1868,7 @@ def get_metrics(X, y):
 
 def metrics_keys():
     X, y = mvg(md=2, nobs=10)
-    dic = get_metrics(X, y)
+    dic = get_metrics(X, y, verbose = False)
     return list(dic[0].keys())
 
 
@@ -1900,26 +1956,31 @@ metric_polarity_dict = {
 
 
 def get_json(X, y):
-    return json.dumps(get_metrics(X, y))
+    return json.dumps(get_metrics(X, y, verbose = False))
 
 
 def get_html(X, y):
     '''
     Generate a summary report in HTML format
     '''
+
+    is_binary = len(np.unique(y)) == 2
+
     html = '<table class="table table-striped">'
 
     tr = '<tr><th> Metric/Statistic </th><tr>'  # <th> Value </th><th> Details </th>
     html += tr
 
-    try:
-        ber, ber_img = BER(X, y, show=False)
+    if is_binary:
 
-        # tr = '<tr><td> BER </td><td>' + str(ber) + '</td><td>' + ber_img + '</td><tr>'
-        tr = '<tr><td> BER = ' + str(ber) + '<br/>' + ber_img + '</td><tr>'
-        html += tr
-    except:
-        print('Exception in GaussianNB.')
+        try:
+            ber, ber_img = BER(X, y, show=False)
+
+            # tr = '<tr><td> BER </td><td>' + str(ber) + '</td><td>' + ber_img + '</td><tr>'
+            tr = '<tr><td> BER = ' + str(ber) + '<br/>' + ber_img + '</td><tr>'
+            html += tr
+        except Exception as e:
+            print('Exception in GaussianNB.', e)
 
     svm_margin, svm_margin_img = SVM_Margin_Width(X, y, show=False)
 
@@ -1939,7 +2000,7 @@ def get_html(X, y):
     tr = '<tr><td> IG = ' + str(ig) + '<br/>' + ig_img + '</td><tr>'
     html += tr
 
-    _, corr_log = correlate(X, y, verbose=False)
+    _, corr_log = correlate(X, y, verbose)
     tr = '<tr><td><pre>' + corr_log + '</pre></td><tr>'
     html += tr
 
@@ -2208,3 +2269,84 @@ def extract_PC(dic):
     print("1st PC: ", PCs[:, 0])
 
     return pca
+
+def run_multiclass_clfs(X, y, split = .3, show = True):
+    '''
+
+    原生支持多分类的模型：
+
+    naive_bayes.BernoulliNB (only for binary features)
+    tree.DecisionTreeClassifier
+    ensemble.ExtraTreesClassifier (only in ensembles)
+    naive_bayes.GaussianNB
+    neighbors.KNeighborsClassifier
+    discriminant_analysis.LinearDiscriminantAnalysis
+    svm.LinearSVC (multi_class=”crammer_singer”)
+    linear_model.LogisticRegression(CV) (multi_class=”multinomial”)
+    neural_network.MLPClassifier
+    neighbors.NearestCentroid
+    ensemble.RandomForestClassifier
+    '''
+
+    matplotlib.rcParams.update({'font.size': 17})
+
+    n_classes = len(np.unique(y))
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split, random_state = 2, stratify=y)
+
+    html_str = ''
+    for clf in [GaussianNB(), DecisionTreeClassifier(), RandomForestClassifier(n_estimators=max(10, n_classes)), 
+                LinearSVC(multi_class="crammer_singer"), LogisticRegressionCV (multi_class="multinomial", max_iter=1000), 
+                MLPClassifier(hidden_layer_sizes=(max(n_classes, X.shape[1]),)), 
+                KNeighborsClassifier(n_neighbors=max(5, n_classes)), 
+                NearestCentroid(), LinearDiscriminantAnalysis()]:
+        
+        html_str += '<h4>' + str(clf) + '</h4>'
+        if show:
+            IPython.display.display(IPython.display.HTML('<h3>' + str(clf) + '</h3>'))
+                                
+        clf.fit(X_train, y_train)   
+        y_pred = clf.predict(X_test) 
+        
+        # y_score = OneHotEncoder(categories = list( range(len(np.unique(y)))) ).fit_transform(y_pred.reshape(-1, 1))
+        y_score = np.eye(n_classes)[y_pred] # one-hot encoding
+        if hasattr(clf, 'predict_proba') and callable(clf.predict_proba):
+            y_score = clf.predict_proba(X_test)        
+
+        report = '<br/><pre>' + str(classification_report(y_test, y_pred)) + '</pre>'
+        if len(np.unique(y)) >= 8:
+            report += '<p>top-3 acc = ' + str(round( top_k_accuracy_score(y_test, y_score, k=3),3)) + '</p>'
+            report += '<p>top-5 acc = ' + str(round( top_k_accuracy_score(y_test, y_score, k=5),3)) + '</p>'
+
+        if show:
+            IPython.display.display(IPython.display.HTML(report)) 
+        html_str += report
+
+        n_classes = len(np.unique(y))
+        _, ax = plt.subplots(1, 2, figsize=(6 + n_classes, 3 + round(n_classes/2))) # gridspec_kw={'width_ratios': [6, 3 + n_classes, 3 + n_classes]})
+
+        # ax[0].set_title('classification report\n')
+        #ax[0].text(0.1, 0, classification_report(y_test, y_pred), 
+        #           fontsize = 18, horizontalalignment='right', verticalalignment='top')
+        #ax[0].axis('off')
+
+        # ax[1].set_title('confusion matrix\n')
+        plot_confusion_matrix(y_test, y_pred, normalize=False, ax=ax[0], cax = None) # cax = ax[2]
+ 
+        # ax[2].set_title('confusion matrix \n(normalized)')
+        plot_confusion_matrix(y_test, y_pred, normalize=True, ax=ax[1], cax = None) # cax = ax[4]
+        
+        # plt.tight_layout()
+        html_str += plt2html(plt)
+
+        if show:
+            plt.show()
+        else:
+            plt.close()
+
+        html_str = html_str + '<br/>'
+        if show:
+            IPython.display.display(IPython.display.HTML('<br/>'))
+
+    matplotlib.rcParams.update({'font.size': 12})
+    
+    return html_str

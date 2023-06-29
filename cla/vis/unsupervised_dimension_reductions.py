@@ -24,7 +24,7 @@ def unsupervised_dimension_reductions(X, y, labels=None):
     # %matplotlib notebook
 
     if X is None or X.shape[1] < 1:
-        print('ERROR: X HAS NO FEATURE/COLUMN!')
+        print('Error: X has NO features!')
         return
 
     if labels is None:
