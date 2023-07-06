@@ -33,6 +33,9 @@ from statsmodels.stats.contingency_tables import mcnemar, cochrans_q
 
 import rpy2
 
+from pyNNRW.elm import ELMClassifier
+from pyNNRW.rvfl import RVFLClassifier
+
 if __package__:
     from .vis.plt2base64 import plt2html
     from .vis.plotComponents2D import plotComponents2D
@@ -1769,7 +1772,7 @@ def get_metrics(X, y, verbose = True):
         dic['test.ES'] = es
         dic['test.ES.max'] = es.max()
 
-        p, T, _ = T_IND(X, y, verbose)
+        p, T, _ = T_IND(X, y, verbose = verbose)
         if p is not None:
             dic['test.student'] = p
             dic['test.student.min'] = np.min(p)
@@ -1826,7 +1829,8 @@ def get_metrics(X, y, verbose = True):
     try:
         p, H = KW(X, y, verbose)
     except Exception as e:
-        print('KW Exception: ', e)
+        if verbose:
+            print('KW Exception: ', e)
     dic['test.KW'] = p
     dic['test.KW.min'] = np.min(p)
     dic['test.KW.min.log10'] = np.log10(np.min(p))
@@ -1841,7 +1845,8 @@ def get_metrics(X, y, verbose = True):
         try:
             p, T, _ = MedianTest(X, y, verbose)
         except Exception as e:
-            print('MedianTest Exception: ', e)
+            if verbose:
+                print('MedianTest Exception: ', e)
         dic['test.Median'] = p
         dic['test.Median.min'] = np.min(p)
         dic['test.Median.min.log10'] = np.log10(np.min(p))
@@ -1853,7 +1858,8 @@ def get_metrics(X, y, verbose = True):
             dic_ecol, _ = ECoL_metrics(X, y)
             dic.update(dic_ecol)
         except Exception as e:
-            print(e)
+            if verbose:
+                print(e)
 
     dic_s = {}
 
@@ -2270,8 +2276,9 @@ def extract_PC(dic):
 
     return pca
 
-def run_multiclass_clfs(X, y, split = .3, show = True):
+def run_multiclass_clfs(X, y, clfs = 'all', split = .3, show = True):
     '''
+    Use grid search to train and evaluate various multi-class classifiers.
 
     原生支持多分类的模型：
 
@@ -2284,7 +2291,6 @@ def run_multiclass_clfs(X, y, split = .3, show = True):
     svm.LinearSVC (multi_class=”crammer_singer”)
     linear_model.LogisticRegression(CV) (multi_class=”multinomial”)
     neural_network.MLPClassifier
-    neighbors.NearestCentroid
     ensemble.RandomForestClassifier
     '''
 
@@ -2292,61 +2298,77 @@ def run_multiclass_clfs(X, y, split = .3, show = True):
 
     n_classes = len(np.unique(y))
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=split, random_state = 2, stratify=y)
+    dic_test_accs = {}
 
     html_str = ''
-    for clf in [GaussianNB(), DecisionTreeClassifier(), RandomForestClassifier(n_estimators=max(10, n_classes)), 
+    for base_learner, param_grid in zip( [GaussianNB(), DecisionTreeClassifier(), RandomForestClassifier(), 
                 LinearSVC(multi_class="crammer_singer"), LogisticRegressionCV (multi_class="multinomial", max_iter=1000), 
-                MLPClassifier(hidden_layer_sizes=(max(n_classes, X.shape[1]),)), 
-                KNeighborsClassifier(n_neighbors=max(5, n_classes)), 
-                NearestCentroid(), LinearDiscriminantAnalysis()]:
+                MLPClassifier(), 
+                KNeighborsClassifier(), # NearestCentroid(),
+                LinearDiscriminantAnalysis(), 
+                ELMClassifier(), RVFLClassifier()], 
+                [{}, {'max_depth': [1,2,3,4,5,10,20]}, {'n_estimators': list(range(2, max(10, n_classes)))},
+                 {'C': [0.01, 0.1, 1, 10]}, {},
+                 {'hidden_layer_sizes': [(x,) for x in range(1, 102, 10)], 'alpha': [0.0001, 0.01, 1] },
+                  {'n_neighbors': list(range(1, max(5, n_classes)))}, 
+                  {},
+                  {'n_hidden_nodes': [1, 2, 5, 10, 20, 50, 75, 100, 150, 200]}, {'n_hidden_nodes': [1, 2, 5, 10, 20, 40, 70, 100]}]):
         
+        if clfs != 'all' and str(base_learner) not in clfs:
+            continue
+
+        gs = GridSearchCV(base_learner, param_grid, cv= min(3,len(y_train)), n_jobs=-1, verbose=0)
+        gs.fit(X_train, y_train)
+
+        clf = gs.best_estimator_
         html_str += '<h4>' + str(clf) + '</h4>'
         if show:
             IPython.display.display(IPython.display.HTML('<h3>' + str(clf) + '</h3>'))
-                                
-        clf.fit(X_train, y_train)   
-        y_pred = clf.predict(X_test) 
-        
-        # y_score = OneHotEncoder(categories = list( range(len(np.unique(y)))) ).fit_transform(y_pred.reshape(-1, 1))
-        y_score = np.eye(n_classes)[y_pred] # one-hot encoding
-        if hasattr(clf, 'predict_proba') and callable(clf.predict_proba):
-            y_score = clf.predict_proba(X_test)        
 
-        report = '<br/><pre>' + str(classification_report(y_test, y_pred)) + '</pre>'
+        y_pred = clf.predict(X_test) 
+        # report = '<br/><pre>' + str(classification_report(y_test, y_pred)) + '</pre>'
+        dic_test_accs[str(clf)] = [clf.score(X_test, y_test)]
+        report = '<p>top-1 acc = ' + str(round( clf.score(X_test, y_test), 3 )) + '</p>'        
+        
         if len(np.unique(y)) >= 8:
+            # y_score = OneHotEncoder(categories = list( range(len(np.unique(y)))) ).fit_transform(y_pred.reshape(-1, 1))
+            y_score = np.eye(n_classes)[y_pred] # one-hot encoding, make sure y is 0-indexed.
+            if hasattr(clf, 'predict_proba') and callable(clf.predict_proba):
+                y_score = clf.predict_proba(X_test)
+
+            y_score = np.nan_to_num(y_score)
+            dic_test_accs[str(clf)].append(top_k_accuracy_score(y_test, y_score, k=3))
+            dic_test_accs[str(clf)].append(top_k_accuracy_score(y_test, y_score, k=5))
             report += '<p>top-3 acc = ' + str(round( top_k_accuracy_score(y_test, y_score, k=3),3)) + '</p>'
             report += '<p>top-5 acc = ' + str(round( top_k_accuracy_score(y_test, y_score, k=5),3)) + '</p>'
 
         if show:
             IPython.display.display(IPython.display.HTML(report)) 
-        html_str += report
+            html_str += report
 
-        n_classes = len(np.unique(y))
-        _, ax = plt.subplots(1, 2, figsize=(6 + n_classes, 3 + round(n_classes/2))) # gridspec_kw={'width_ratios': [6, 3 + n_classes, 3 + n_classes]})
+            n_classes = len(np.unique(y))
+            _, ax = plt.subplots(1, 2, figsize=(6 + n_classes, 3 + round(n_classes/2))) # gridspec_kw={'width_ratios': [6, 3 + n_classes, 3 + n_classes]})
 
-        # ax[0].set_title('classification report\n')
-        #ax[0].text(0.1, 0, classification_report(y_test, y_pred), 
-        #           fontsize = 18, horizontalalignment='right', verticalalignment='top')
-        #ax[0].axis('off')
+            # ax[0].set_title('classification report\n')
+            #ax[0].text(0.1, 0, classification_report(y_test, y_pred), 
+            #           fontsize = 18, horizontalalignment='right', verticalalignment='top')
+            #ax[0].axis('off')
 
-        # ax[1].set_title('confusion matrix\n')
-        plot_confusion_matrix(y_test, y_pred, normalize=False, ax=ax[0], cax = None) # cax = ax[2]
- 
-        # ax[2].set_title('confusion matrix \n(normalized)')
-        plot_confusion_matrix(y_test, y_pred, normalize=True, ax=ax[1], cax = None) # cax = ax[4]
-        
-        # plt.tight_layout()
-        html_str += plt2html(plt)
+            # ax[1].set_title('confusion matrix\n')
+            plot_confusion_matrix(y_test, y_pred, normalize=False, ax=ax[0], cax = None) # cax = ax[2]
+    
+            # ax[2].set_title('confusion matrix \n(normalized)')
+            plot_confusion_matrix(y_test, y_pred, normalize=True, ax=ax[1], cax = None) # cax = ax[4]
+            
+            # plt.tight_layout()
+            html_str += plt2html(plt)
 
-        if show:
-            plt.show()
-        else:
-            plt.close()
+            plt.show() # plt.close()
 
-        html_str = html_str + '<br/>'
-        if show:
+            html_str = html_str + '<br/>'
+
             IPython.display.display(IPython.display.HTML('<br/>'))
 
     matplotlib.rcParams.update({'font.size': 12})
     
-    return html_str
+    return dic_test_accs, html_str

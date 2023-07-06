@@ -32,7 +32,7 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
         'meta.logistic' - use logistic regression as a meta-learner
         'decompose.pca' - decomposition using PCA
         'decompose.lda' - decomposition using LDA
-    pkl : a pickle file of pre-computed atom metrics to load.
+    pkl : a pickle file of pre-computed atom metrics to load. If None, will generate on site.
 
     Return
     ------
