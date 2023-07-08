@@ -865,6 +865,7 @@ def IG(X, y, show=False, save_fig=''):
         print('Exception in mutual_info_classif().', e)
         return None, None
 
+
     mi_sorted = np.sort(mi)[::-1]  # sort in desceding order
     mi_sorted_idx = np.argsort(mi)[::-1]
 
@@ -901,7 +902,7 @@ def IG(X, y, show=False, save_fig=''):
     return mi, IMG
 
 
-def CHISQ(X, y, show=False, save_fig=''):
+def CHISQ(X, y, show=False, save_fig='', verbose = False):
     """
     Performa feature-wise chi-square test. 
     Returns an array of chi2 statistics and p-values on all the features.
@@ -1025,7 +1026,6 @@ def T_IND(X, y, verbose=False, show=False, max_plot_num=5):
 
     ps = []
     Ts = []
-    cnt = 0
     IMG = ''
 
     for i in range(X.shape[1]):
@@ -1052,7 +1052,7 @@ def T_IND(X, y, verbose=False, show=False, max_plot_num=5):
         ps.append(p)
         Ts.append(T)
 
-        if (cnt < max_plot_num):
+        if (i < max_plot_num):
             plt.figure()
             # plot ith feature of different classes
             plt.boxplot(Xcis, notch=False, labels=labels)
@@ -1066,10 +1066,10 @@ def T_IND(X, y, verbose=False, show=False, max_plot_num=5):
                 plt.show()
             else:
                 plt.close()
-        elif cnt == max_plot_num:
+        elif i == max_plot_num:
             IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'
         else:
-            pass  # plot no more to avoid memory cost
+            pass # plot no more to avoid memory cost
 
     if verbose:
         print('The P values of X in dimensions 1 to {}:{}'.format(
@@ -1200,8 +1200,6 @@ def ANOVA(X, y, verbose=False, show=False, max_plot_num=5):
     IMG = ''
     Fs = []
 
-    cnt = 0
-
     for i in range(X.shape[1]):
         Xi = X[:, i]
         Xcis = []
@@ -1247,7 +1245,7 @@ def ANOVA(X, y, verbose=False, show=False, max_plot_num=5):
         ps.append(p)
         Fs.append(f)
 
-        if (cnt < max_plot_num):
+        if (i < max_plot_num):
 
             plt.figure()
             # plot ith feature of different classes
@@ -1261,12 +1259,10 @@ def ANOVA(X, y, verbose=False, show=False, max_plot_num=5):
                 plt.show()
             else:
                 plt.close()
-        elif cnt == max_plot_num:
+        elif i == max_plot_num:
             IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'
         else:
-            pass  # plot no more to avoid memory cost
-
-        cnt = cnt+1
+            pass # plot no more to avoid memory cost
 
         if verbose:
             print(test_result)
@@ -1340,8 +1336,6 @@ def MWW(X, y, verbose=False, show=False, max_plot_num=5):
     Us = []
     IMG = ''
 
-    cnt = 0
-
     for i in range(X.shape[1]):
         Xi = X[:, i]
         Xcis = []
@@ -1365,7 +1359,7 @@ def MWW(X, y, verbose=False, show=False, max_plot_num=5):
         ps.append(p)
         Us.append(U)
 
-        if cnt < max_plot_num:
+        if i < max_plot_num:
             plt.figure()
             plt.hist(Xcis, bins=min(12, int(len(y)/3)), alpha=0.4, edgecolor='black', label=["$ X_"+str(
                 i+1)+"^{( y_"+str(0)+")} $", "$ X_"+str(i+1)+"^{( y_"+str(1)+")} $"])  # plot ith feature of different classes
@@ -1381,13 +1375,10 @@ def MWW(X, y, verbose=False, show=False, max_plot_num=5):
             else:
                 plt.close()
 
-        elif cnt == max_plot_num:
+        elif i == max_plot_num:
             IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'
-
         else:
             pass  # plot no more to avoid memory cost
-
-        cnt = cnt + 1
 
         if verbose:
             print(test_result)
@@ -1563,7 +1554,6 @@ def KS(X, y, verbose = True, show=False, max_plot_num=5):
     ps = []
     Ds = []
     IMG = ''
-    cnt = 0
 
     for i in range(X.shape[1]):
         Xi = X[:, i]
@@ -1580,7 +1570,7 @@ def KS(X, y, verbose = True, show=False, max_plot_num=5):
         ps.append(p)
         Ds.append(D)
 
-        if cnt < max_plot_num:
+        if i < max_plot_num:
 
             plt.figure()
             plt.hist(Xcis, cumulative=True, histtype=u'step', bins=min(12, int(len(y)/3)), label=["$ CDF( X_"+str(
@@ -1816,7 +1806,7 @@ def get_metrics(X, y, verbose = True):
             dic['test.KS.D'] = D
             dic['test.KS.D.max'] = np.max(D)
 
-    p, C, _ = CHISQ(X, y)
+    p, C, _ = CHISQ(X, y, verbose = verbose)
     dic['test.CHISQ'] = p
     dic['test.CHISQ.min'] = np.min(p)
     dic['test.CHISQ.min.log10'] = np.log10(np.min(p))

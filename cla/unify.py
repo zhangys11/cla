@@ -19,7 +19,7 @@ import joblib
 from .vis.plotComponents2D import plotComponents2D
 from .metrics import get_metrics, visualize_dict, visualize_corr_matrix, generate_html_for_dict
 
-def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
+def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None,verbose=False):
     '''
     An include-all function that trains a meta-learner model of unified single metric.
     And use that metric to evaluate the between-class and in-class classifiability.
@@ -49,7 +49,8 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
         dic = calculate_atom_metrics(mu = X.mean(axis = 0), s = X.std(axis = 0),
                             mds = np.linspace(0, 6, 7+6*2),
                             repeat = 5, nobs = 100,
-                            show_curve = True, show_html = True)
+                            show_curve = True, show_html = True, 
+                            verbose = verbose)
         pkl_file = str(datetime.now()).replace(':','').replace('-','').replace(' ','') + '.pkl'
         joblib.dump(dic, pkl_file) # later we can reload with: dic = joblib.load('x.pkl')
         print('Save atom metrics to', pkl_file)
@@ -57,7 +58,7 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
     _, keys, _, M = filter_metrics(dic, threshold = (0.5 if use_filter else None))
     if method == 'decompose.pca':
         model, x_min, x_max, slope = train_decomposer_pca(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
 
         # maps to the [0,1] range
         print('before scaling: ', umetric_bw, umetric_in)
@@ -80,11 +81,11 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
 
     elif method == 'meta.logistic':
         model = train_metalearner_logistic(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
     
     elif method == 'decompose.lda':
         model, x_min, x_max, slope = train_decomposer_lda(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
 
         # maps to the [0,1] range
         print('before scaling: ', umetric_bw, umetric_in)
@@ -96,7 +97,7 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None):
 
     elif method == 'meta.linear':
         model = train_metalearner_linear(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method)
+        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
 
     else:
         raise Exception('Unsupported method ' + method )
@@ -142,7 +143,7 @@ def mvgx(
 
 def calculate_atom_metrics(mu, s, mds,
 repeat = 3, nobs = 100,
-show_curve = True, show_html = True):
+show_curve = True, show_html = True, verbose = False):
     '''
     Calculate atom metric values for different mds (between-group distances)
 
@@ -186,7 +187,7 @@ show_curve = True, show_html = True):
             ## if detailed:
             #    print('d = ', round(md,3))
 
-            _, raw_dic1 = get_metrics(X,y)
+            _, raw_dic1 = get_metrics(X,y,verbose=verbose)
             for k, v in raw_dic1.items():
                 if k in raw_dic:
                     raw_dic[k].append(v) # raw_dic[k] = raw_dic[k] + v
@@ -371,7 +372,7 @@ def train_metalearner_logistic(M, d, cutoff = 2):
     print('Coef and Intercept: ', clf.coef_, clf.intercept_)
     return clf
 
-def calculate_unified_metric(X, y, model, keys,method):
+def calculate_unified_metric(X, y, model, keys, method, verbose = False):
     '''
     First, fit a linear regression (meta-learner) model for M on d.
     Then, calcualte the between-class and in-class unified metric on real dataset X and y.
@@ -381,18 +382,18 @@ def calculate_unified_metric(X, y, model, keys,method):
     model : meta-learner model, returned by train_metalearner()
     keys : selected metric names, returned by filter_metrics()
     '''
-    return AnalyzeBetweenClass(X ,y, model, keys,method), AnalyzeInClass(X, y, model, keys,method)
+    return AnalyzeBetweenClass(X ,y, model, keys, method, verbose=verbose), AnalyzeInClass(X, y, model, keys,method, verbose=verbose)
 
-def AnalyzeBetweenClass(X, y, model, keys, method):
+def AnalyzeBetweenClass(X, y, model, keys, method, verbose = False):
 
     X_pca = PCA(n_components = 2).fit_transform(X)
     plotComponents2D(X_pca, y)
 
-    _, new_dic = get_metrics(X, y)
+    _, new_dic = get_metrics(X, y, verbose=verbose)
     vec_metrics = []
 
     for key in keys:
-        vec_metrics.append(new_dic[key])
+        vec_metrics.append(new_dic[key] if key in new_dic else 0)
 
     vec_metrics = np.nan_to_num(vec_metrics,nan=0,posinf=1000,neginf=-1000)
     if method == 'meta.logistic' and isinstance(model, LogisticRegression):
@@ -412,7 +413,7 @@ def AnalyzeBetweenClass(X, y, model, keys, method):
     # print("between-class unified metric = ", umetric[1])
     return umetric
 
-def AnalyzeInClass(X, y, model, keys, method, repeat = 3):
+def AnalyzeInClass(X, y, model, keys, method, repeat = 3, verbose = False):
     '''
     Parameters
     ----------
@@ -427,10 +428,10 @@ def AnalyzeInClass(X, y, model, keys, method, repeat = 3):
 
         for i in range(repeat):
             yc = (np.random.rand(len(Xc)) > 0.5).astype(int) # random assign y labels
-            _, new_dic = get_metrics(Xc, yc)
+            _, new_dic = get_metrics(Xc, yc, verbose=verbose)
             vec_metrics = []
             for key in keys:
-                vec_metrics.append(new_dic[key])
+                vec_metrics.append(new_dic[key] if key in new_dic else 0)
 
             vec_metrics = np.nan_to_num(vec_metrics,nan=0,posinf=1000,neginf=-1000)
 
