@@ -49,7 +49,9 @@ def plotComponents2D(X, y, labels=None, use_markers=False, ax=None, legends=None
 
     ax.legend()
 
-    ax.axes.xaxis.set_visible(False)
-    ax.axes.yaxis.set_visible(False)
+    # ax.axes.xaxis.set_visible(False)
+    # ax.axes.yaxis.set_visible(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
 
     return ax

@@ -4,6 +4,7 @@ A unified classifiability analysis framework based on meta-learner and its appli
 '''
 
 import os
+import math
 from datetime import datetime
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -11,23 +12,26 @@ import IPython.core.display
 import numpy as np
 import pandas as pd
 import scipy
-from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression, LogisticRegressionCV
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.decomposition import PCA
+import scipy.optimize
 import joblib
 
 from .vis.plotComponents2D import plotComponents2D
-from .metrics import get_metrics, visualize_dict, visualize_corr_matrix, generate_html_for_dict
+from .metrics import get_metrics, visualize_atom_dict, visualize_corr_matrix, generate_html_for_dict
 
-def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None,verbose=False):
+def analyze(X, y, mds=np.linspace(0, 4, 9), cutoff=2, filter_threshold=.5, methods=['meta.logistic', 'decompose.pca'], pkl=None, verbose=False):
     '''
     An include-all function that trains a meta-learner model of unified single metric.
     And use that metric to evaluate the between-class and in-class classifiability.
 
     Parameter
     ---------
+    mds : a list of float, defines a range from not classifiable to most classifiable. 
+    cutoff : a float, defines the cutoff of classifiability.
     use_filter : whether to use R2 to filter highly correlated atom metrics
-    method : which method to use.
+    methods : a list of methods to use:
         'meta.linear' - use linear regression as a meta-learner
         'meta.logistic' - use logistic regression as a meta-learner
         'decompose.pca' - decomposition using PCA
@@ -47,62 +51,83 @@ def analyze(X,y,use_filter=True,method='decompose.pca',pkl=None,verbose=False):
         print('Load atom metrics from', pkl_file)
     else:
         dic = calculate_atom_metrics(mu = X.mean(axis = 0), s = X.std(axis = 0),
-                            mds = np.linspace(0, 6, 7+6*2),
-                            repeat = 5, nobs = 100,
-                            show_curve = True, show_html = True, 
-                            verbose = verbose)
+                            mds = mds, # defines a range from not classifiable to most classifiable.
+                            repeat = 3, nobs = len(X),
+                            show_html = True, verbose = verbose)
         pkl_file = str(datetime.now()).replace(':','').replace('-','').replace(' ','') + '.pkl'
         joblib.dump(dic, pkl_file) # later we can reload with: dic = joblib.load('x.pkl')
         print('Save atom metrics to', pkl_file)
 
-    _, keys, _, M = filter_metrics(dic, threshold = (0.5 if use_filter else None))
-    if method == 'decompose.pca':
-        model, x_min, x_max, slope = train_decomposer_pca(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+    visualize_atom_dict(dic)
+    _, keys, _, M = filter_metrics(dic, filter_threshold)
 
-        # maps to the [0,1] range
-        print('before scaling: ', umetric_bw, umetric_in)
-        print('PC1 range: ', x_min, x_max)
+    dic_result = {}
 
-        '''
-        np.interp(x, xp, fp, left=None, right=None)
+    for method in methods:
 
-        left : optional float or complex corresponding to fp
-            Value to return for `x < xp[0]`, default is `fp[0]`.
+        print()
+        print('----- Atom metric synthesis method:', method, '-----')
 
-        right : optional float or complex corresponding to fp
-            Value to return for `x > xp[-1]`, default is `fp[-1]`.
+        if method == 'decompose.pca':
+            # model, x_min, x_max, slope = train_decomposer_pca(M, dic['d'])
+            model, A, B, C = train_decomposer_pca(M, dic['d'])
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+
+            if True:
+
+                # maps to the [0,1] range
+                print('PC1 before mapping: ', umetric_bw, umetric_in)
+
+            '''
+            np.interp(x, xp, fp, left=None, right=None)
+
+            left : optional float or complex corresponding to fp
+                Value to return for `x < xp[0]`, default is `fp[0]`.
+
+            right : optional float or complex corresponding to fp
+                Value to return for `x > xp[-1]`, default is `fp[-1]`.
+            
+            Because the default left and right params, we dont need to do extra out-of-range (>max or <min) treatments.
+            '''
+            umetric_bw = A * np.exp(umetric_bw + B) + C # np.interp(umetric_bw,[x_min,x_max],[0,1] if slope else [1,0])
+            umetric_in = A * np.exp(umetric_in + B) + C # np.interp(umetric_in,[x_min,x_max],[0,1] if slope else [1,0])
+            
+            if verbose:
+                print('After mapping: ', umetric_bw, umetric_in)
+
+        elif method == 'meta.logistic':
+            model = train_metalearner_logistic(M, dic['d'], cutoff=cutoff, verbose=verbose)
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
         
-        Because the default left and right params, we dont need to do extra out-of-range (>max or <min) treatments.
-        '''
-        umetric_bw = np.interp(umetric_bw,[x_min,x_max],[0,1] if slope else [1,0])
-        umetric_in = np.interp(umetric_in,[x_min,x_max],[0,1] if slope else [1,0])
-        print('after scaling: ', umetric_bw, umetric_in)
+        elif method == 'decompose.lda':
+            model, x_min, x_max, slope = train_decomposer_lda(M, dic['d'], cutoff=cutoff)
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
 
-    elif method == 'meta.logistic':
-        model = train_metalearner_logistic(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
-    
-    elif method == 'decompose.lda':
-        model, x_min, x_max, slope = train_decomposer_lda(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+            # maps to the [0,1] range
+            print('before scaling: ', umetric_bw, umetric_in)
+            print('C1 range: ', x_min, x_max)
 
-        # maps to the [0,1] range
-        print('before scaling: ', umetric_bw, umetric_in)
-        print('C1 range: ', x_min, x_max)
+            umetric_bw = np.interp(umetric_bw, [x_min, x_max], [0, 1] if slope else [1,0])
+            umetric_in = np.interp(umetric_in, [x_min, x_max], [0, 1] if slope else [1,0])
+            print('after scaling: ', umetric_bw, umetric_in)
 
-        umetric_bw = np.interp(umetric_bw, [x_min, x_max], [0, 1] if slope else [1,0])
-        umetric_in = np.interp(umetric_in, [x_min, x_max], [0, 1] if slope else [1,0])
-        print('after scaling: ', umetric_bw, umetric_in)
+        elif method == 'meta.linear':
+            model = train_metalearner_linear(M, dic['d'], verbose = verbose)
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
 
-    elif method == 'meta.linear':
-        model = train_metalearner_linear(M, dic['d'])
-        umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+        else:
+            raise Exception('Unsupported method ' + method )
+        
+        dic_result[method] = {'umetric_bw': umetric_bw, 'umetric_in': umetric_in}
 
-    else:
-        raise Exception('Unsupported method ' + method )
+        print('between-class and in-class scores:')
+        print(dic_result)
+        print()
 
-    return umetric_bw, umetric_in, pkl_file
+        print('----- End of', method, '-----')
+        print()
+
+    return dic_result, pkl_file
 
 def mvgx(
     mu, # mean, row vector
@@ -141,9 +166,8 @@ def mvgx(
 
     return X, y
 
-def calculate_atom_metrics(mu, s, mds,
-repeat = 3, nobs = 100,
-show_curve = True, show_html = True, verbose = False):
+def calculate_atom_metrics(mu, s, mds, repeat = 3, nobs = 100,
+                           show_curve = True, show_html = True, verbose = False):
     '''
     Calculate atom metric values for different mds (between-group distances)
 
@@ -151,14 +175,13 @@ show_curve = True, show_html = True, verbose = False):
     ----------
     mu : mean vector
     s : std vector
-    mds : an array. between-classes mean distances (in std). e.g., np.linspace(0,1,10)
-    show_curve : whether output each metric curve against the between-class distance
+    mds : an array. between-classes mean distances (in std). e.g., np.linspace(0,6,10)
     show_html : whether output an inline HTML table of metrics
 
     Example
     -------
     dic = calculate_atom_metrics(mu = X.mean(axis = 0), s = X.std(axis = 0),
-                                 mds = np.linspace(0, 1, 5),
+                                 mds = np.linspace(0, 1.6, 9),
                                  repeat = 1, nobs = 40)
     '''
 
@@ -214,10 +237,6 @@ show_curve = True, show_html = True, verbose = False):
             else:
                 dic[k] = np.array([v])
 
-    if show_curve:
-        print('visualize_dict()')
-        visualize_dict(dic)
-
     if show_html:
         print('generate_html_for_dict()')
         s = generate_html_for_dict(dic)
@@ -233,7 +252,7 @@ def filter_metrics(dic, threshold = 0.25, display = True):
     Parameter
     ---------
     threshold : R2 threshold.
-        If None, will keep all the original atom metrics
+        If None or 0, will keep all the original atom metrics
 
     Return
     ------
@@ -257,7 +276,7 @@ def filter_metrics(dic, threshold = 0.25, display = True):
     M = []
 
     if display:
-        if threshold is not None:
+        if threshold is not None and threshold>0:
             print('before filter')
         try:
             visualize_corr_matrix(dic, cmap = 'coolwarm', threshold = threshold)
@@ -270,7 +289,7 @@ def filter_metrics(dic, threshold = 0.25, display = True):
         else:
             slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(x,y)
             dic_r2[k] = r_value**2
-            if threshold is None or dic_r2[k] > threshold:
+            if threshold is None or dic_r2[k] >= threshold:
                 keys.append(k)
                 filtered_dic[k] = x
                 M.append(x)
@@ -281,7 +300,7 @@ def filter_metrics(dic, threshold = 0.25, display = True):
 
     return dic_r2, keys, filtered_dic, np.array(M).T
 
-def train_decomposer_lda(M, d, cutoff=3):
+def train_decomposer_lda(M, d, cutoff = 2):
     d = np.array(d) >= cutoff
     df = pd.DataFrame(M)
 
@@ -326,17 +345,28 @@ def train_decomposer_pca(M, d):
     PC1_min = min(X_pca.T[0])
     PC1_max = max(X_pca.T[0])
 
+    # 需要拟合的函数, d = f(PC1)
+    def f_log(x, A, B, C):
+        return A * np.exp(x+B) + C
+
+    # 得到返回的A，B值
+    A, B, C = scipy.optimize.curve_fit(f_log, X_pca.T[0], d)[0]
+
     plt.scatter(d, X_pca.T[0])
     plt.title('PC1 ~ d')
+    plt.xlabel('d')
+    plt.ylabel('PC1(' + str(round(decomposer.explained_variance_ratio_[0], 3)) + ')')
+    # plt.xticks([])
+    # plt.yticks([])
     plt.show()
 
     slope = X_pca.T[0][-1] > X_pca.T[0][0] # 1 # /-1
 
     print('Explained Variance Ratios for the first three PCs', decomposer.explained_variance_ratio_[:3])
-    return decomposer, PC1_min, PC1_max, slope
+    return decomposer, A, B, C #PC1_min, PC1_max, slope
 
 
-def train_metalearner_linear(M, d):
+def train_metalearner_linear(M, d, verbose = False):
     d = np.array(d) # np.median(d)
     dic2 = pd.DataFrame(M)
     dic2.fillna(0, inplace=True)
@@ -344,10 +374,13 @@ def train_metalearner_linear(M, d):
     dic2.replace(-np.inf, -1, inplace=True)
     lr = LinearRegression().fit(dic2, d)
     # print('Score: ', lr.score(M, d))
-    print('Coef and Intercept: ', lr.coef_, lr.intercept_)
+
+    if verbose:
+        print('Coef and Intercept: ', lr.coef_, lr.intercept_)
+
     return lr
 
-def train_metalearner_logistic(M, d, cutoff = 2):
+def train_metalearner_logistic(M, d, cutoff = 2, verbose = False):
     '''
     Train meta-learner using the atom metric matrix and the distance array.
 
@@ -355,8 +388,7 @@ def train_metalearner_logistic(M, d, cutoff = 2):
     ---------
     cutoff : use this cutoff to convert d to binary values,
     as we use logistic regression as the meta-learner output.
-    default is 2, i.e., if md > 2, we deem it as fairly classifiable.
-    If you want more resolution in the lower range, choose a smaller cutoff.
+    We deem it as fairly classifiable if d > cutoff. 
 
     Note
     ----
@@ -367,9 +399,12 @@ def train_metalearner_logistic(M, d, cutoff = 2):
 
     d = np.array(d) >= cutoff # np.median(d)
 
-    clf = LogisticRegression(max_iter=1000, solver='liblinear').fit(M, d)
-    print('Score: ', clf.score(M, d))
-    print('Coef and Intercept: ', clf.coef_, clf.intercept_)
+    clf = LogisticRegressionCV(max_iter=2000, solver='liblinear').fit(M, d)
+
+    if verbose:
+        # print('Score: ', clf.score(M, d))
+        print('Coef and Intercept: ', clf.coef_, clf.intercept_)
+
     return clf
 
 def calculate_unified_metric(X, y, model, keys, method, verbose = False):
@@ -386,8 +421,15 @@ def calculate_unified_metric(X, y, model, keys, method, verbose = False):
 
 def AnalyzeBetweenClass(X, y, model, keys, method, verbose = False):
 
-    X_pca = PCA(n_components = 2).fit_transform(X)
-    plotComponents2D(X_pca, y)
+    if verbose:
+
+        pca = PCA(n_components = 2)
+        X_pca = pca.fit_transform(X)
+        plotComponents2D(X_pca, y)
+        plt.title('Scatter plot of entire dataset after PCA DR')
+        plt.xlabel('PC1(' + str(round(pca.explained_variance_ratio_[0], 3)) + ')')
+        plt.ylabel('PC2(' + str(round(pca.explained_variance_ratio_[1], 3)) + ')')
+        plt.show()
 
     _, new_dic = get_metrics(X, y, verbose=verbose)
     vec_metrics = []
@@ -396,7 +438,7 @@ def AnalyzeBetweenClass(X, y, model, keys, method, verbose = False):
         vec_metrics.append(new_dic[key] if key in new_dic else 0)
 
     vec_metrics = np.nan_to_num(vec_metrics,nan=0,posinf=1000,neginf=-1000)
-    if method == 'meta.logistic' and isinstance(model, LogisticRegression):
+    if method == 'meta.logistic' and (isinstance(model, LogisticRegression) or isinstance(model, LogisticRegressionCV)):
         umetric = model.predict_proba([vec_metrics.T])[0][1]
     elif method == 'decompose.pca' and isinstance(model, PCA):
         M = vec_metrics.reshape(1,-1)
@@ -410,7 +452,10 @@ def AnalyzeBetweenClass(X, y, model, keys, method, verbose = False):
         umetric = model.predict(M)
     else:
         raise Exception('Unsupported method ' + method )
-    # print("between-class unified metric = ", umetric[1])
+    
+    if verbose:
+        print("between-class unified metric = ", umetric)
+
     return umetric
 
 def AnalyzeInClass(X, y, model, keys, method, repeat = 3, verbose = False):
@@ -449,9 +494,18 @@ def AnalyzeInClass(X, y, model, keys, method, repeat = 3, verbose = False):
             else:
                 raise Exception('Unsupported method ' + method )
 
-        print("c = ", int(c), ", in-class unified metric = ", d/repeat)
-        X_pca = PCA(n_components = 2).fit_transform(Xc)
-        plotComponents2D(X_pca, y[y == c]) #, tags=range(len(X_pca)))
+        if verbose:
+            print("c = ", int(c), ", in-class unified metric = ", d/repeat)
+
+            pca = PCA(n_components = 2)
+            X_pca = pca.fit_transform(Xc)
+            plotComponents2D(X_pca, y[y == c]) #, tags=range(len(X_pca)))
+
+            plt.title('Scatter plot of Class ' + str(int(c)) + ' after PCA DR')
+            plt.xlabel('PC1(' + str(round(pca.explained_variance_ratio_[0], 3)) + ')')
+            plt.ylabel('PC2(' + str(round(pca.explained_variance_ratio_[1], 3)) + ')')
+            plt.show()
+
         umetrics.append(d/repeat)
 
     return umetrics

@@ -102,8 +102,6 @@ def plot_confusion_matrix(y_true, y_pred, labels=None, true_labels=None,
     else:
         classes = np.asarray(labels)
 
-    
-
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
         cm = np.around(cm, decimals=2)

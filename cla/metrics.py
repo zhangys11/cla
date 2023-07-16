@@ -555,7 +555,7 @@ def plot_clf_boundary(X, y, clf, Xn=None, clf_type='svm'):
     plt.legend()
     plt.show()
 
-def classify_with_svm(X, y):
+def classify_with_svm(X, y, test_size=0.3):
     """Train SVM classifiers
 
     Parameters
@@ -564,6 +564,9 @@ def classify_with_svm(X, y):
     y: label    
     """
 
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, stratify=y)  # , random_state=0
+
     # we create an instance of SVM and fit out data. We do not scale our
     # data since we want to plot the support vectors
     C = 1.0  # SVM regularization parameter
@@ -571,7 +574,7 @@ def classify_with_svm(X, y):
               LinearSVC(C=C, multi_class='crammer_singer'), # crammer_singer optimizes a joint objective over all classes
               SVC(kernel='rbf', gamma=0.7, C=C),
               SVC(kernel='poly', degree=3, C=C))
-    models = (clf.fit(X, y) for clf in models)
+    models = (clf.fit(X_train, y_train) for clf in models)
 
     # title for the plots
     titles = ('SVC - linear kernel',
@@ -583,21 +586,21 @@ def classify_with_svm(X, y):
     fig, sub = plt.subplots(2, 2, figsize=(15, 15))
     plt.subplots_adjust(wspace=0.4, hspace=0.4)
 
-    X0, X1 = X[:, 0], X[:, 1]
+    X0, X1 = X_test[:, 0], X_test[:, 1]
     xx, yy = make_meshgrid(X0, X1)
 
     for clf, title, ax in zip(models, titles, sub.flatten()):
 
         if X.shape[1] == 2:
-            plot_contours(ax, clf, xx, yy, cmap=plt.cm.coolwarm, alpha=0.1)
-        ax.scatter(X0, X1, c=y, cmap=plt.cm.coolwarm, s=20, edgecolors='k')
+            plot_contours(ax, clf, xx, yy, alpha=0.5) # cmap=plt.cm.coolwarm, 
+        ax.scatter(X0, X1, c=y_test, s=20, edgecolors='k') # cmap=plt.cm.coolwarm, 
         ax.set_xlim(xx.min(), xx.max())
         ax.set_ylim(yy.min(), yy.max())
         ax.set_xlabel('X1')
         ax.set_ylabel('X2')
         ax.set_xticks(())
         ax.set_yticks(())
-        ax.set_title(title + '\n(score: {0:.2})'.format(clf.score(X, y)))
+        ax.set_title(title + '\n(score: {0:.2})'.format(clf.score(X_test, y_test)))
 
     plt.show()
 
@@ -636,16 +639,19 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
 
     is_binary = len(set(y)) == 2
 
+    X_train, X, y_train, y = train_test_split(X, y, test_size=0.2, stratify=y, random_state=0)  # , random_state=0
+    # NOTE: the following X and y are the test set.
+
     grp_samples = []
-    for yv in set(y):
-        grp_samples.append((y == yv).sum())
+    for yv in set(y_train):
+        grp_samples.append((y_train == yv).sum())
 
     # min(grp_samples) is the minimum sample size among all categories.
     # CV requires to be not greater than this value.
 
     try:
-        clf = LogisticRegressionCV(cv=min(3, min(grp_samples)), max_iter=1000, 
-                                   multi_class='multinomial').fit(X, y)  # ridge(L2) regularization
+        clf = LogisticRegressionCV(cv=min(3, min(grp_samples)), max_iter=3000, 
+                                   multi_class='multinomial').fit(X_train, y_train)  # ridge(L2) regularization
     except Exception as e:
         print('Exception in LogisticRegressionCV().', e)
         return None, None, None
@@ -1587,12 +1593,10 @@ def KS(X, y, verbose = True, show=False, max_plot_num=5):
             else:
                 plt.close()
 
-        elif cnt == max_plot_num:
+        elif i == max_plot_num:
             IMG += '<p>Showing the first ' + str(max_plot_num) + ' plots.</p>'
         else:
             pass  # plot no more to avoid memory cost
-
-        cnt = cnt+1
 
     IMG += "<br/>"
     return ps, Ds, IMG
@@ -2153,9 +2157,10 @@ def generate_html_for_dict(dic):
     return s
 
 
-def visualize_dict(dic):
+def visualize_atom_dict(dic):
     '''
-    Visualize the metric dictionary returned from simulate()  
+    Visualize the atom metric dictionary returned from simulate().  
+    It will plot each metric curve against the between-class distance.
     '''
 
     N = len(dic) - 1
@@ -2183,6 +2188,12 @@ def visualize_dict(dic):
 
 
 def visualize_corr_matrix(dic, cmap='coolwarm', threshold=0.25):
+    '''
+    Parameters
+    ----------
+    threshold : float, valid range is [0,1].
+        Only show the correlation coefficient that is above the threshold. The default is 0.25.
+    '''
 
     M = dic['d']
     names = ['d']
@@ -2218,7 +2229,7 @@ def visualize_corr_matrix(dic, cmap='coolwarm', threshold=0.25):
     corrs = np.nan_to_num(corrs)
     plt.bar(names[1:], corrs, facecolor="none", edgecolor="black",
             width=0.8, label='R2 effect size')  # ,width = 0.6, hatch='x'
-    if threshold is not None:
+    if threshold is not None and threshold > 0:
         plt.plot(names[1:], [threshold] * len(names[1:]), '--',
                  label='R2 threshold = ' + str(threshold))
     plt.title('R2 effect size of the correlation with between-class distance')
@@ -2226,10 +2237,10 @@ def visualize_corr_matrix(dic, cmap='coolwarm', threshold=0.25):
     plt.legend(loc='lower right')
     plt.show()
 
-    if threshold is not None:
+    if threshold is not None and threshold > 0:
         # print(np.where( np.abs(dfM.corr().values[0,1:])>0.9 ))
         print('Metrics above the threshold (' + str(threshold) + '): ',
-              np.array(names[1:])[np.where(corrs > threshold)])
+              np.array(names[1:])[np.where(corrs >= threshold)])
 
 
 def extract_PC(dic):
@@ -2337,7 +2348,7 @@ def run_multiclass_clfs(X, y, clfs = 'all', split = .3, show = True):
             html_str += report
 
             n_classes = len(np.unique(y))
-            _, ax = plt.subplots(1, 2, figsize=(6 + n_classes, 3 + round(n_classes/2))) # gridspec_kw={'width_ratios': [6, 3 + n_classes, 3 + n_classes]})
+            _, ax = plt.subplots(1, 2, figsize=(8 + n_classes, 4 + round(n_classes/2))) # gridspec_kw={'width_ratios': [6, 3 + n_classes, 3 + n_classes]})
 
             # ax[0].set_title('classification report\n')
             #ax[0].text(0.1, 0, classification_report(y_test, y_pred), 
