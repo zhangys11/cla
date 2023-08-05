@@ -120,12 +120,12 @@ def analyze(X, y, mds=np.linspace(0, 4, 9), cutoff=2, filter_threshold=.5, metho
         
         dic_result[method] = {'umetric_bw': umetric_bw, 'umetric_in': umetric_in}
 
-        print('between-class and in-class scores:')
-        print(dic_result)
-        print()
-
         print('----- End of', method, '-----')
         print()
+
+    print('between-class and in-class scores:')
+    print(dic_result)
+    print()
 
     return dic_result, pkl_file
 
