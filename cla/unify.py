@@ -12,6 +12,7 @@ import IPython.core.display
 import numpy as np
 import pandas as pd
 import scipy
+from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression, LogisticRegressionCV
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.decomposition import PCA
@@ -61,6 +62,10 @@ def analyze(X, y, mds=np.linspace(0, 4, 9), cutoff=2, filter_threshold=.5, metho
     visualize_atom_dict(dic)
     _, keys, _, M = filter_metrics(dic, filter_threshold)
 
+    # as different metrics may have quite different value ranges, perform a standardization. 
+    scaler = StandardScaler()
+    M = scaler.fit_transform(M)
+
     dic_result = {}
 
     for method in methods:
@@ -71,7 +76,7 @@ def analyze(X, y, mds=np.linspace(0, 4, 9), cutoff=2, filter_threshold=.5, metho
         if method == 'decompose.pca':
             # model, x_min, x_max, slope = train_decomposer_pca(M, dic['d'])
             model, A, B, C = train_decomposer_pca(M, dic['d'])
-            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, scaler, verbose=verbose)
 
             if True:
 
@@ -97,11 +102,11 @@ def analyze(X, y, mds=np.linspace(0, 4, 9), cutoff=2, filter_threshold=.5, metho
 
         elif method == 'meta.logistic':
             model = train_metalearner_logistic(M, dic['d'], cutoff=cutoff, verbose=verbose)
-            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, scaler, verbose=verbose)
         
         elif method == 'decompose.lda':
             model, x_min, x_max, slope = train_decomposer_lda(M, dic['d'], cutoff=cutoff)
-            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, scaler, verbose=verbose)
 
             # maps to the [0,1] range
             print('before scaling: ', umetric_bw, umetric_in)
@@ -113,7 +118,7 @@ def analyze(X, y, mds=np.linspace(0, 4, 9), cutoff=2, filter_threshold=.5, metho
 
         elif method == 'meta.linear':
             model = train_metalearner_linear(M, dic['d'], verbose = verbose)
-            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, verbose=verbose)
+            umetric_bw, umetric_in = calculate_unified_metric(X, y, model, keys, method, scaler, verbose=verbose)
 
         else:
             raise Exception('Unsupported method ' + method )
@@ -284,7 +289,7 @@ def filter_metrics(dic, threshold = 0.25, display = True):
             print('Exception in visualize_corr_matrix()', e)
 
     for k, x in dic.items():
-        if k == 'd':
+        if k == 'd' or len(np.unique(x))==1:
             pass
         else:
             slope, intercept, r_value, p_value, std_err = scipy.stats.linregress(x,y)
@@ -407,7 +412,7 @@ def train_metalearner_logistic(M, d, cutoff = 2, verbose = False):
 
     return clf
 
-def calculate_unified_metric(X, y, model, keys, method, verbose = False):
+def calculate_unified_metric(X, y, model, keys, method, scaler, verbose = False):
     '''
     First, fit a linear regression (meta-learner) model for M on d.
     Then, calcualte the between-class and in-class unified metric on real dataset X and y.
@@ -417,9 +422,9 @@ def calculate_unified_metric(X, y, model, keys, method, verbose = False):
     model : meta-learner model, returned by train_metalearner()
     keys : selected metric names, returned by filter_metrics()
     '''
-    return AnalyzeBetweenClass(X ,y, model, keys, method, verbose=verbose), AnalyzeInClass(X, y, model, keys,method, verbose=verbose)
+    return AnalyzeBetweenClass(X ,y, model, keys, method, scaler, verbose=verbose), AnalyzeInClass(X, y, model, keys,method, scaler, verbose=verbose)
 
-def AnalyzeBetweenClass(X, y, model, keys, method, verbose = False):
+def AnalyzeBetweenClass(X, y, model, keys, method, scaler, verbose = False):
 
     if verbose:
 
@@ -438,17 +443,17 @@ def AnalyzeBetweenClass(X, y, model, keys, method, verbose = False):
         vec_metrics.append(new_dic[key] if key in new_dic else 0)
 
     vec_metrics = np.nan_to_num(vec_metrics,nan=0,posinf=1000,neginf=-1000)
+
+    M = vec_metrics.reshape(1,-1)
+    M = scaler.transform(M)
+    
     if method == 'meta.logistic' and (isinstance(model, LogisticRegression) or isinstance(model, LogisticRegressionCV)):
-        umetric = model.predict_proba([vec_metrics.T])[0][1]
-    elif method == 'decompose.pca' and isinstance(model, PCA):
-        M = vec_metrics.reshape(1,-1)
+        umetric = model.predict_proba(M)[0][1]
+    elif method == 'decompose.pca' and isinstance(model, PCA):        
         umetric = model.transform(M)[0][0]
     elif method == 'decompose.lda' and isinstance(model, LDA):
-        M = vec_metrics.reshape(1,-1)
         umetric = model.transform(M)[0][0]
     elif method == 'meta.linear' and isinstance(model, LinearRegression):
-        M = vec_metrics.reshape(1,-1)
-        # M=(M-mean)/std
         umetric = model.predict(M)
     else:
         raise Exception('Unsupported method ' + method )
@@ -458,7 +463,7 @@ def AnalyzeBetweenClass(X, y, model, keys, method, verbose = False):
 
     return umetric
 
-def AnalyzeInClass(X, y, model, keys, method, repeat = 3, verbose = False):
+def AnalyzeInClass(X, y, model, keys, method, scaler, repeat = 3, verbose = False):
     '''
     Parameters
     ----------
@@ -479,17 +484,17 @@ def AnalyzeInClass(X, y, model, keys, method, repeat = 3, verbose = False):
                 vec_metrics.append(new_dic[key] if key in new_dic else 0)
 
             vec_metrics = np.nan_to_num(vec_metrics,nan=0,posinf=1000,neginf=-1000)
+            
+            M = vec_metrics.reshape(1,-1)
+            M = scaler.transform(M)
 
             if method == 'meta.logistic' and isinstance(model, LogisticRegression):
-                d += model.predict_proba([vec_metrics.T])[0][1]
+                d += model.predict_proba(M)[0][1]
             elif method == 'decompose.pca' and isinstance(model, PCA):
-                M = vec_metrics.reshape(1,-1)
                 d += model.transform(M)[0][0]
             elif method == 'decompose.lda' and isinstance(model, LDA):
-                M = vec_metrics.reshape(1,-1)
                 d += model.transform(M)[0][0]
             elif method == 'meta.linear' and isinstance(model, LinearRegression):
-                M = vec_metrics.reshape(1, -1)
                 d += model.predict(M)
             else:
                 raise Exception('Unsupported method ' + method )
