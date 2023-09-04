@@ -5,3 +5,5 @@ dist/
 *.egg-info/
 notebooks/.ipynb_checkpoints/
 cla/gui/*.csv
+notebooks/data/
+notebooks/src/

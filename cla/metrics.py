@@ -2000,7 +2000,7 @@ def get_html(X, y):
     tr = '<tr><td> IG = ' + str(ig) + '<br/>' + ig_img + '</td><tr>'
     html += tr
 
-    _, corr_log = correlate(X, y, verbose)
+    _, corr_log = correlate(X, y)
     tr = '<tr><td><pre>' + corr_log + '</pre></td><tr>'
     html += tr
 

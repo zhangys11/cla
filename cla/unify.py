@@ -94,8 +94,8 @@ def analyze(X, y, mds=np.linspace(0, 4, 9), cutoff=2, filter_threshold=.5, metho
             
             Because the default left and right params, we dont need to do extra out-of-range (>max or <min) treatments.
             '''
-            umetric_bw = A * np.exp(umetric_bw + B) + C # np.interp(umetric_bw,[x_min,x_max],[0,1] if slope else [1,0])
-            umetric_in = A * np.exp(umetric_in + B) + C # np.interp(umetric_in,[x_min,x_max],[0,1] if slope else [1,0])
+            umetric_bw = f_sigmoid(umetric_bw, A, B, C) # np.interp(umetric_bw,[x_min,x_max],[0,1] if slope else [1,0])
+            umetric_in = f_sigmoid(umetric_in, A, B, C) # np.interp(umetric_in,[x_min,x_max],[0,1] if slope else [1,0])
             
             if verbose:
                 print('After mapping: ', umetric_bw, umetric_in)
@@ -172,7 +172,7 @@ def mvgx(
     return X, y
 
 def calculate_atom_metrics(mu, s, mds, repeat = 3, nobs = 100,
-                           show_curve = True, show_html = True, verbose = False):
+                           show_html = True, verbose = False):
     '''
     Calculate atom metric values for different mds (between-group distances)
 
@@ -327,6 +327,12 @@ def train_decomposer_lda(M, d, cutoff = 2):
     print('Explained Variance Ratios for the first component', lda.explained_variance_ratio_[0])
     return lda, C1_min, C1_max, slope
 
+# 需要拟合的函数, d = f(PC1)
+def f_log(x, A, B, C):
+    return A * np.exp(x+B) + C
+def f_sigmoid(x, A, B, C):
+    return A / (1 + np.exp(- np.array(x)*B + C))
+
 def train_decomposer_pca(M, d):
     '''
     Train a PCA decomposer using the atom metric matrix.
@@ -350,12 +356,8 @@ def train_decomposer_pca(M, d):
     PC1_min = min(X_pca.T[0])
     PC1_max = max(X_pca.T[0])
 
-    # 需要拟合的函数, d = f(PC1)
-    def f_log(x, A, B, C):
-        return A * np.exp(x+B) + C
-
     # 得到返回的A，B值
-    A, B, C = scipy.optimize.curve_fit(f_log, X_pca.T[0], d)[0]
+    A, B, C = scipy.optimize.curve_fit(f_sigmoid, X_pca.T[0], d)[0]
 
     plt.scatter(d, X_pca.T[0])
     plt.title('PC1 ~ d')
