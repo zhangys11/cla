@@ -6,7 +6,7 @@ setup(
     name="cla",
     
     # Version number (initial):
-    version="2.1.0",
+    version="2.2.0",
     
     # Application author details:
     author="Zhang",
@@ -31,7 +31,7 @@ setup(
     # Dependent packages (distributions)
     install_requires=[
         "flask",
-        "rpy2",         
+        # "rpy2",
         "scikit-learn",
         "scipy",
         "uuid",
@@ -41,6 +41,7 @@ setup(
         "seaborn",
         "statsmodels",
         "flaskwebgui",
+        "pyNNRW",
     ],
 
     package_data={
