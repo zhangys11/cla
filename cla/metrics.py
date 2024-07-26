@@ -2326,7 +2326,12 @@ def run_multiclass_clfs_presplit(X_train, y_train, X_test = None, y_test = None,
             continue
 
         gs = GridSearchCV(base_learner, param_grid, cv= min(3,len(y_train)), n_jobs=-1, verbose=0)
-        gs.fit(X_train, y_train)
+        X_train = np.nan_to_num(X_train)
+        try:
+            gs.fit(X_train, y_train)
+        except:
+            print('GridSearchCV fit() error: ', str(base_learner))
+            continue # skip this clf if error
 
         clf = gs.best_estimator_
         html_str += '<h4>' + str(clf) + '</h4>'
