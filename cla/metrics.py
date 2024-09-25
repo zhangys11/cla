@@ -10,7 +10,6 @@ import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from tqdm import tqdm
 import IPython.display
 
 from sklearn.metrics import *  # we use global() to access the imported functions
@@ -2088,6 +2087,8 @@ def simulate(mds, repeat=1, nobs=100, dims=2):
     ----------
     mds : an array. between-classes mean distances    
     '''
+
+    from tqdm import tqdm
 
     dic = {}
 
