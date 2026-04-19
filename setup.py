@@ -6,7 +6,7 @@ setup(
     name="cla",
     
     # Version number (initial):
-    version="2.2.0",
+    version="2.2.1",
     
     # Application author details:
     author="Zhang",
@@ -42,6 +42,7 @@ setup(
         "statsmodels",
         "flaskwebgui",
         "pyNNRW",
+        "xgboost"
     ],
 
     package_data={
