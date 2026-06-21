@@ -6,7 +6,7 @@ setup(
     name="cla",
     
     # Version number (initial):
-    version="2.2.1",
+    version="2.2.2",
     
     # Application author details:
     author="Zhang",

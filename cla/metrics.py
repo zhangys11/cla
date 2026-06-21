@@ -10,6 +10,7 @@ import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from tqdm import tqdm
 import IPython.display
 
 from sklearn.metrics import *  # we use global() to access the imported functions
@@ -668,8 +669,11 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
         plt.figure()
 
         # plt.scatter(data['X1'], data['X2'], s=50, c=clf.predict_proba(data[['X1', 'X2']])[:,0], cmap='seismic')
-        plt.scatter(X[:, 0], X[:, 1], s=50,
-                    c=clf.decision_function(X), cmap='seismic')
+        dv = np.asarray(clf.decision_function(X))
+        if dv.ndim == 2:
+            dv = dv[:, 0]  # multi-class: take first class decision values
+        dv = (dv - dv.min()) / (dv.max() - dv.min() + 1e-10)  # normalize to [0,1]
+        plt.scatter(X[:, 0], X[:, 1], s=50, c=dv, cmap='seismic', vmin=0, vmax=1)
 
         # plot the decision function
         ax = plt.gca()  # get current axes
@@ -681,7 +685,10 @@ def CLF(X, y, verbose=False, show=False, save_fig=''):
         yy = np.linspace(ylim[0], ylim[1], 30)
         YY, XX = np.meshgrid(yy, xx)
         xy = np.vstack([XX.ravel(), YY.ravel()]).T
-        Z = clf.decision_function(xy).reshape(XX.shape)
+        Z = clf.decision_function(xy)
+        if Z.ndim == 2:
+            Z = Z[:, 0]  # multi-class: take first class
+        Z = Z.reshape(XX.shape)
 
         # plot decision boundary and margins
         _ = ax.contour(XX, YY, Z, colors='k', levels=[-1, 0, 1], alpha=0.5,
@@ -1964,6 +1971,8 @@ def get_html(X, y):
     '''
     Generate a summary report in HTML format
     '''
+    def _s(v):
+        return 'N/A' if v is None else str(v)
 
     is_binary = len(np.unique(y)) == 2
 
@@ -1977,8 +1986,8 @@ def get_html(X, y):
         try:
             ber, ber_img = BER(X, y, show=False)
 
-            # tr = '<tr><td> BER </td><td>' + str(ber) + '</td><td>' + ber_img + '</td><tr>'
-            tr = '<tr><td> BER = ' + str(ber) + '<br/>' + ber_img + '</td><tr>'
+            # tr = '<tr><td> BER </td><td>' + str(ber) + '</td><td>' + _s(ber_img) + '</td><tr>'
+            tr = '<tr><td> BER = ' + str(ber) + '<br/>' + _s(ber_img) + '</td><tr>'
             html += tr
         except Exception as e:
             print('Exception in GaussianNB.', e)
@@ -1986,34 +1995,34 @@ def get_html(X, y):
     svm_margin, svm_margin_img = SVM_Margin_Width(X, y, show=False)
 
     tr = '<tr><td> SVM Margin Width = ' + \
-        str(svm_margin) + '<br/>' + svm_margin_img + '</td><tr>'
+        str(svm_margin) + '<br/>' + _s(svm_margin_img) + '</td><tr>'
     html += tr
 
     clf, clf_img, clf_log = CLF(X, y, show=False)
 
-    # tr = '<tr><td> ACC </td><td>' + str(acc) + '</td><td>' + acc_img + '<br/><pre>' + acc_log + '</pre></td><tr>'
-    tr = '<tr><td>' + str(clf) + '<br/>' + clf_img + \
-        '<br/><pre>' + clf_log + '</pre></td><tr>'
+    # tr = '<tr><td> ACC </td><td>' + str(acc) + '</td><td>' + _s(acc_img) + '<br/><pre>' + _s(acc_log) + '</pre></td><tr>'
+    tr = '<tr><td>' + str(clf) + '<br/>' + _s(clf_img) + \
+        '<br/><pre>' + _s(clf_log) + '</pre></td><tr>'
     html += tr
 
     ig, ig_img = IG(X, y, show=False)
 
-    tr = '<tr><td> IG = ' + str(ig) + '<br/>' + ig_img + '</td><tr>'
+    tr = '<tr><td> IG = ' + str(ig) + '<br/>' + _s(ig_img) + '</td><tr>'
     html += tr
 
     _, corr_log = correlate(X, y)
-    tr = '<tr><td><pre>' + corr_log + '</pre></td><tr>'
+    tr = '<tr><td><pre>' + _s(corr_log) + '</pre></td><tr>'
     html += tr
 
     t_p, _, t_img = T_IND(X, y)
 
-    tr = '<tr><td> Independent t-test p' + \
-        str(t_p) + '<br/>' + t_img + '</td><tr>'
+    tr = '<tr><td> Independent t-test p = ' + \
+        _s(t_p) + '<br/>' + ('' if t_img is None else t_img) + '</td><tr>'
     html += tr
 
     anova_p, _, anova_img = ANOVA(X, y)
 
-    tr = '<tr><td> ANOVA p' + str(anova_p) + '<br/>' + anova_img + '</td><tr>'
+    tr = '<tr><td> ANOVA p' + _s(anova_p) + '<br/>' + _s(anova_img) + '</td><tr>'
     html += tr
 
     manova_p, _, manova_log = MANOVA(X, y)
@@ -2022,38 +2031,38 @@ def get_html(X, y):
         pass
     else:
         tr = '<tr><td> MANOVA p = ' + \
-            str(manova_p) + '<br/><pre>' + manova_log + '</pre></td><tr>'
+            _s(manova_p) + '<br/><pre>' + _s(manova_log) + '</pre></td><tr>'
         html += tr
 
     mww_p, _, mww_img = MWW(X, y)
 
-    tr = '<tr><td> MWW p = ' + str(mww_p) + '<br/>' + mww_img + '</td><tr>'
+    tr = '<tr><td> MWW p = ' + _s(mww_p) + '<br/>' + _s(mww_img) + '</td><tr>'
     html += tr
 
     ks_p, _, ks_img = KS(X, y)
 
-    tr = '<tr><td> K-S p = ' + str(ks_p) + '<br/>' + ks_img + '</td><tr>'
+    tr = '<tr><td> K-S p = ' + _s(ks_p) + '<br/>' + _s(ks_img) + '</td><tr>'
     html += tr
 
     chi2s_p, _, chi2s_img = CHISQ(X, y)
 
     tr = '<tr><td> CHISQ p = ' + \
-        str(chi2s_p) + '<br/>' + chi2s_img + '</td><tr>'
+        _s(chi2s_p) + '<br/>' + _s(chi2s_img) + '</td><tr>'
     html += tr
 
     m_p, _, m_img = MedianTest(X, y)
 
-    tr = '<tr><td> Median test p = ' + str(m_p) + '<br/>' + m_img + '</td><tr>'
+    tr = '<tr><td> Median test p = ' + _s(m_p) + '<br/>' + _s(m_img) + '</td><tr>'
     html += tr
 
     kw_p, _ = KW(X, y)
 
-    tr = '<tr><td> Kruskal-Wallis test p = ' + str(kw_p) + '</td><tr>'
+    tr = '<tr><td> Kruskal-Wallis test p = ' + _s(kw_p) + '</td><tr>'
     html += tr
 
     es, es_img = cohen_d(X, y)
 
-    tr = '<tr><td> ES = ' + str(es) + '<br/>' + es_img + '</td><tr>'
+    tr = '<tr><td> ES = ' + str(es) + '<br/>' + _s(es_img) + '</td><tr>'
     html += tr
 
     if ENABLE_R:
@@ -2087,8 +2096,6 @@ def simulate(mds, repeat=1, nobs=100, dims=2):
     ----------
     mds : an array. between-classes mean distances    
     '''
-
-    from tqdm import tqdm
 
     dic = {}
 
@@ -2327,12 +2334,7 @@ def run_multiclass_clfs_presplit(X_train, y_train, X_test = None, y_test = None,
             continue
 
         gs = GridSearchCV(base_learner, param_grid, cv= min(3,len(y_train)), n_jobs=-1, verbose=0)
-        X_train = np.nan_to_num(X_train)
-        try:
-            gs.fit(X_train, y_train)
-        except:
-            print('GridSearchCV fit() error: ', str(base_learner))
-            continue # skip this clf if error
+        gs.fit(X_train, y_train)
 
         clf = gs.best_estimator_
         html_str += '<h4>' + str(clf) + '</h4>'
